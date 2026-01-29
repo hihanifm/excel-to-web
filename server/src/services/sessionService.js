@@ -19,11 +19,12 @@ export function getSession(id) {
   };
 }
 
-export function updateSessionSheet(id, sheetName, headers, totalRows, chunkSize) {
+export function updateSessionSheet(id, sheetName, headers, totalRows, chunkSize, options = {}) {
   const db = getDb(process.env.DB_PATH);
+  const status = options.compareMode ? 'draft' : 'configured';
   db.prepare(
     'UPDATE sessions SET sheet_name = ?, headers = ?, total_rows = ?, chunk_size = ?, status = ? WHERE id = ?'
-  ).run(sheetName, JSON.stringify(headers), totalRows, chunkSize, 'configured', id);
+  ).run(sheetName, JSON.stringify(headers), totalRows, chunkSize, status, id);
 }
 
 export function deleteSessionRowsAndChunks(sessionId) {
@@ -294,4 +295,82 @@ export function getAllRowEdits(sessionId) {
     'SELECT row_index, target_value FROM row_edits WHERE session_id = ?'
   ).all(sessionId);
   return Object.fromEntries(rows.map((r) => [r.row_index, r.target_value]));
+}
+
+/**
+ * Compute compare stats for two columns: value distribution and same/different row counts.
+ * Returns { totalRows, sameCount, differentCount, samePct, differentPct, valueStats: [...] }.
+ */
+export function getCompareStats(sessionId, col1, col2) {
+  const session = getSession(sessionId);
+  if (!session) return null;
+  const headers = session.headers;
+  const idx1 = headers.indexOf(col1);
+  const idx2 = headers.indexOf(col2);
+  if (idx1 === -1 || idx2 === -1) return null;
+
+  const rows = getAllSessionRowsForExport(sessionId);
+  const totalRows = rows.length;
+  if (totalRows === 0) {
+    return {
+      totalRows: 0,
+      sameCount: 0,
+      differentCount: 0,
+      samePct: 0,
+      differentPct: 0,
+      valueStats: [],
+    };
+  }
+
+  const count1 = Object.create(null);
+  const count2 = Object.create(null);
+  const samePerValue = Object.create(null); // rows where col1 === col2 === value
+  let sameCount = 0;
+  let differentCount = 0;
+
+  for (const { data } of rows) {
+    const v1 = data[idx1];
+    const v2 = data[idx2];
+    const n1 = v1 == null || v1 === '' ? null : String(v1).trim();
+    const n2 = v2 == null || v2 === '' ? null : String(v2).trim();
+    const s1 = n1 ?? '';
+    const s2 = n2 ?? '';
+    count1[s1] = (count1[s1] || 0) + 1;
+    count2[s2] = (count2[s2] || 0) + 1;
+    if (s1 === s2) {
+      sameCount += 1;
+      samePerValue[s1] = (samePerValue[s1] || 0) + 1;
+    } else {
+      differentCount += 1;
+    }
+  }
+
+  const allValues = new Set([...Object.keys(count1), ...Object.keys(count2)]);
+  const valueStats = [...allValues].sort().map((value) => {
+    const c1 = count1[value] || 0;
+    const c2 = count2[value] || 0;
+    const same = samePerValue[value] || 0;
+    // Relative % change: ((col2 - col1) / col1) * 100; null when col1 is 0 (frontend shows "new" or "—")
+    const pctChange =
+      c1 > 0 ? Math.round(((c2 - c1) / c1) * 1000) / 10 : (c2 > 0 ? null : 0);
+    return {
+      value: value === '' ? '(blank)' : value,
+      col1Count: c1,
+      col2Count: c2,
+      sameCount: same,
+      col1Pct: totalRows ? Math.round((c1 / totalRows) * 1000) / 10 : 0,
+      col2Pct: totalRows ? Math.round((c2 / totalRows) * 1000) / 10 : 0,
+      samePct: totalRows ? Math.round((same / totalRows) * 1000) / 10 : 0,
+      pctChange,
+    };
+  });
+
+  return {
+    totalRows,
+    sameCount,
+    differentCount,
+    samePct: totalRows ? Math.round((sameCount / totalRows) * 1000) / 10 : 0,
+    differentPct: totalRows ? Math.round((differentCount / totalRows) * 1000) / 10 : 0,
+    valueStats,
+  };
 }

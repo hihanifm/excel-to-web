@@ -49,15 +49,16 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// PUT /api/sessions/:id/sheet — body: { sheetName, chunkSize? }
+// PUT /api/sessions/:id/sheet — body: { sheetName, chunkSize?, compare? }
 router.put('/:id/sheet', async (req, res) => {
   try {
     const sessionId = Number(req.params.id);
     const session = sessionService.getSession(sessionId);
     if (!session) return res.status(404).json({ error: 'Session not found' });
-    const { sheetName, chunkSize: reqChunkSize } = req.body;
+    const { sheetName, chunkSize: reqChunkSize, compare } = req.body;
     if (!sheetName) return res.status(400).json({ error: 'sheetName required' });
     const chunkSize = Math.min(Math.max(1, parseInt(reqChunkSize || session.chunk_size || 100, 10)), 1000);
+    const compareMode = !!compare;
 
     sessionService.deleteSessionRowsAndChunks(sessionId);
 
@@ -79,14 +80,31 @@ router.put('/:id/sheet', async (req, res) => {
       totalRows += batch.length;
     }
 
-    sessionService.updateSessionSheet(sessionId, sheetName, headers, totalRows, chunkSize);
-    sessionService.createChunks(sessionId, totalRows, chunkSize);
+    sessionService.updateSessionSheet(sessionId, sheetName, headers, totalRows, chunkSize, { compareMode });
+    if (!compareMode) {
+      sessionService.createChunks(sessionId, totalRows, chunkSize);
+    }
 
     res.json({ headers, totalRows, chunkSize });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'Sheet parse failed' });
   }
+});
+
+// GET /api/sessions/:id/compare — query: col1, col2
+router.get('/:id/compare', (req, res) => {
+  const sessionId = Number(req.params.id);
+  const session = sessionService.getSession(sessionId);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+  const { col1, col2 } = req.query;
+  if (!col1 || !col2) return res.status(400).json({ error: 'col1 and col2 query params required' });
+  const headers = session.headers;
+  if (!headers.includes(col1)) return res.status(400).json({ error: `Column not found: ${col1}` });
+  if (!headers.includes(col2)) return res.status(400).json({ error: `Column not found: ${col2}` });
+  const stats = sessionService.getCompareStats(sessionId, col1, col2);
+  if (!stats) return res.status(500).json({ error: 'Failed to compute compare stats' });
+  res.json(stats);
 });
 
 // GET /api/sessions/:id
