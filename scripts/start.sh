@@ -176,10 +176,13 @@ fi
 
 if [ "$PROD" = true ]; then
   echo "Starting excel-to-web (prod, single process)..."
-  if [ ! -d "$ROOT/client/dist" ]; then
-    echo "Building client..."
-    (cd "$ROOT/client" && npm run build) > "$LOG_DIR/frontend-build.log" 2>&1
+  echo "Building client (latest code)..."
+  (cd "$ROOT/client" && npm run build) > "$LOG_DIR/frontend-build.log" 2>&1
+  if [ $? -ne 0 ]; then
+    echo "❌ Client build failed. Check $LOG_DIR/frontend-build.log"
+    exit 1
   fi
+  echo "✓ Client built"
   echo "Backend on port $BACKEND_PORT..."
   cd "$ROOT/server"
   nohup env PORT=$BACKEND_PORT NODE_ENV=production node src/server.js >> "$LOG_DIR/backend.log" 2>&1 &

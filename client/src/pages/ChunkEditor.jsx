@@ -45,6 +45,7 @@ export default function ChunkEditor() {
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState({ rows: [], totalInChunk: 0, targetOptions: [] });
   const [loading, setLoading] = useState(false);
+  const [claimSubmitting, setClaimSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [resumeChecked, setResumeChecked] = useState(false);
   const [autoAdvance, setAutoAdvance] = useState(getStoredAutoAdvance);
@@ -134,7 +135,7 @@ export default function ChunkEditor() {
       setError('Enter your name');
       return;
     }
-    setLoading(true);
+    setClaimSubmitting(true);
     setError('');
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -165,7 +166,7 @@ export default function ChunkEditor() {
     } catch (err) {
       setError(err.name === 'AbortError' ? 'Request timed out. Check that the server is running.' : (err.message || 'Claim failed'));
     } finally {
-      setLoading(false);
+      setClaimSubmitting(false);
     }
   };
 
@@ -256,8 +257,8 @@ export default function ChunkEditor() {
             <label>Your name: </label>
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </p>
-          <button type="submit" className="primary" disabled={loading}>
-            {loading ? 'Claiming...' : 'Claim chunk'}
+          <button type="submit" className="primary" disabled={claimSubmitting}>
+            {claimSubmitting ? 'Claiming...' : 'Claim chunk'}
           </button>
         </form>
       </div>
