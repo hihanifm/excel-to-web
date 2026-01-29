@@ -76,5 +76,17 @@ test.describe.serial('Session and chunk e2e', () => {
     for (let i = 0; i < 5; i++) {
       await rowCards.nth(i).getByRole('button').first().click();
     }
+
+    // Resume flow: go back to session and click Resume on the same chunk; should land in editor without claim form
+    await page.goto(`/sessions/${sessionId}`);
+    await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible();
+    const resumeLink = page.getByRole('table').getByRole('link', { name: 'Resume' }).first();
+    await expect(resumeLink).toBeVisible({ timeout: 5000 });
+    await resumeLink.click();
+    await page.waitForURL(new RegExp(`/sessions/${sessionId}/chunks/0/edit`));
+    // Should see editor (rows per view) and NOT the claim form
+    await expect(page.getByText(/rows per view/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: 'Claim chunk' })).not.toBeVisible();
+    await expect(page.getByLabel(/your name/i)).not.toBeVisible();
   });
 });

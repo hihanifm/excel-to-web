@@ -118,7 +118,10 @@ export default function SessionDetail() {
               <td style={{ padding: '0.5rem' }}>{ch.assignee_name || '–'}</td>
               <td style={{ padding: '0.5rem' }}>{ch.rowsEditedInChunk ?? 0} / {ch.rowsInChunk ?? (ch.end_row - ch.start_row)}</td>
               <td style={{ padding: '0.5rem' }}>
-                <Link to={`/sessions/${id}/chunks/${ch.chunk_index}/edit`}>
+                <Link
+                  to={`/sessions/${id}/chunks/${ch.chunk_index}/edit`}
+                  state={ch.status !== 'unclaimed' && ch.assignee_name ? { resumeWithName: ch.assignee_name } : undefined}
+                >
                   {ch.status === 'unclaimed' ? 'Claim' : ch.assignee_name ? 'Resume' : 'View'}
                 </Link>
               </td>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 
 const CLAIMANT_STORAGE_KEY = (sessionId) => `excel-app_claimant_${sessionId}`;
 const LAST_VIEWED_OFFSET_KEY = (sessionId, chunkIndex) => `excel-app_lastOffset_${sessionId}_chunk_${chunkIndex}`;
@@ -7,6 +7,7 @@ const LAST_VIEWED_OFFSET_KEY = (sessionId, chunkIndex) => `excel-app_lastOffset_
 export default function ChunkEditor() {
   const { id, chunkIndex } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [name, setName] = useState('');
   const [claimed, setClaimed] = useState(false);
   const [limit, setLimit] = useState(1);
@@ -30,36 +31,44 @@ export default function ChunkEditor() {
       .finally(() => setLoading(false));
   };
 
-  // On mount: if chunk is already claimed by the same user (stored name), skip claim form and resume from last edited row
+  // On mount: if chunk is already claimed by the same user (stored name or resume link), skip claim form and resume from last viewed row
   useEffect(() => {
     if (resumeChecked || claimed) return;
     const storedName = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(CLAIMANT_STORAGE_KEY(id)) : null;
-    if (!storedName?.trim()) {
-      setResumeChecked(true);
-      return;
-    }
+    const resumeWithName = location.state?.resumeWithName;
+    const effectiveName = (storedName || resumeWithName || '').trim();
+    const norm = (s) => (s || '').trim().toLowerCase();
+
     fetch(`/api/sessions/${id}/chunks`)
       .then((r) => r.ok ? r.json() : [])
       .then((chunks) => {
         const chunk = chunks.find((c) => String(c.chunk_index) === String(chunkIndex));
-        if (!chunk || chunk.assignee_name !== storedName.trim()) {
+        if (!chunk) {
           setResumeChecked(true);
           return;
         }
-        setName(storedName.trim());
-        setClaimed(true);
-        const totalInChunk = chunk.rowsInChunk ?? chunk.end_row - chunk.start_row;
-        const storedOffset = typeof sessionStorage !== 'undefined'
-          ? sessionStorage.getItem(LAST_VIEWED_OFFSET_KEY(id, chunkIndex))
-          : null;
-        const resumeOffset = storedOffset != null
-          ? Math.min(Math.max(0, parseInt(storedOffset, 10)), Math.max(0, totalInChunk - 1))
-          : Math.min(chunk.rowsEditedInChunk ?? 0, Math.max(0, totalInChunk - 1));
-        setOffset(resumeOffset);
+        const assignee = (chunk.assignee_name || '').trim();
+        if (effectiveName && norm(chunk.assignee_name) === norm(effectiveName)) {
+          setName(assignee || effectiveName);
+          setClaimed(true);
+          if (resumeWithName && typeof sessionStorage !== 'undefined' && !storedName) {
+            sessionStorage.setItem(CLAIMANT_STORAGE_KEY(id), (assignee || resumeWithName).trim());
+          }
+          const totalInChunk = chunk.rowsInChunk ?? chunk.end_row - chunk.start_row;
+          const storedOffset = typeof sessionStorage !== 'undefined'
+            ? sessionStorage.getItem(LAST_VIEWED_OFFSET_KEY(id, chunkIndex))
+            : null;
+          const resumeOffset = storedOffset != null
+            ? Math.min(Math.max(0, parseInt(storedOffset, 10)), Math.max(0, totalInChunk - 1))
+            : Math.min(chunk.rowsEditedInChunk ?? 0, Math.max(0, totalInChunk - 1));
+          setOffset(resumeOffset);
+        } else if (assignee) {
+          setName(assignee);
+        }
         setResumeChecked(true);
       })
       .catch(() => setResumeChecked(true));
-  }, [id, chunkIndex, claimed, resumeChecked]);
+  }, [id, chunkIndex, claimed, resumeChecked, location.state?.resumeWithName]);
 
   useEffect(() => {
     if (claimed) loadRows(offset, limit);
@@ -176,7 +185,8 @@ export default function ChunkEditor() {
 
   if (!claimed) {
     const storedName = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(CLAIMANT_STORAGE_KEY(id)) : null;
-    if (!resumeChecked && storedName?.trim()) {
+    const mayResume = (storedName?.trim() || location.state?.resumeWithName?.trim());
+    if (!resumeChecked && mayResume) {
       return (
         <div className="card">
           <h1>Chunk {Number(chunkIndex) + 1}</h1>
