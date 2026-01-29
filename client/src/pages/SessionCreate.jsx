@@ -48,8 +48,10 @@ export default function SessionCreate() {
     fetch('/api/sessions/upload', { method: 'POST', body: fd })
       .then(parseJsonResponse)
       .then((data) => {
+        const names = data.sheetNames || [];
         setSessionId(data.sessionId);
-        setSheetNames(data.sheetNames || []);
+        setSheetNames(names);
+        setSelectedSheet(names[0] || '');
         setChunkSize(parseInt(form.chunkSize?.value || '100', 10));
         setStep(2);
       })

@@ -67,11 +67,10 @@ test.describe.serial('Session and chunk e2e', () => {
     await form.getByRole('textbox').fill('E2E Tester');
     await form.getByRole('button', { name: 'Claim chunk' }).click();
     await expect(page.getByText(/rows per view/i)).toBeVisible();
-
     await page.locator('select').selectOption('5');
     await expect(page.getByText(/rows 1[-–]5 of/i)).toBeVisible({ timeout: 10000 });
 
-    const rowCards = page.locator('.card[style*="280px"]');
+    const rowCards = page.locator('.card[style*="100%"]');
     await expect(rowCards).toHaveCount(5);
     for (let i = 0; i < 5; i++) {
       await rowCards.nth(i).getByRole('button').first().click();
@@ -84,7 +83,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await expect(resumeLink).toBeVisible({ timeout: 5000 });
     await resumeLink.click();
     await page.waitForURL(new RegExp(`/sessions/${sessionId}/chunks/0/edit`));
-    // Should see editor (rows per view) and NOT the claim form
+    // Should see editor and NOT the claim form
     await expect(page.getByText(/rows per view/i)).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('button', { name: 'Claim chunk' })).not.toBeVisible();
     await expect(page.getByLabel(/your name/i)).not.toBeVisible();

@@ -3,6 +3,20 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 
 const CLAIMANT_STORAGE_KEY = (sessionId) => `excel-app_claimant_${sessionId}`;
 const LAST_VIEWED_OFFSET_KEY = (sessionId, chunkIndex) => `excel-app_lastOffset_${sessionId}_chunk_${chunkIndex}`;
+const ROWS_PER_VIEW_KEY = 'excel-app_rowsPerView';
+const AUTO_ADVANCE_KEY = 'excel-app_autoAdvance';
+
+const getStoredRowsPerView = () => {
+  if (typeof sessionStorage === 'undefined') return 1;
+  const v = sessionStorage.getItem(ROWS_PER_VIEW_KEY);
+  const n = parseInt(v, 10);
+  return [1, 5, 10].includes(n) ? n : 1;
+};
+const getStoredAutoAdvance = () => {
+  if (typeof sessionStorage === 'undefined') return true;
+  const v = sessionStorage.getItem(AUTO_ADVANCE_KEY);
+  return v !== 'false';
+};
 
 export default function ChunkEditor() {
   const { id, chunkIndex } = useParams();
@@ -10,13 +24,13 @@ export default function ChunkEditor() {
   const location = useLocation();
   const [name, setName] = useState('');
   const [claimed, setClaimed] = useState(false);
-  const [limit, setLimit] = useState(1);
+  const [limit, setLimit] = useState(getStoredRowsPerView);
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState({ rows: [], totalInChunk: 0, targetOptions: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resumeChecked, setResumeChecked] = useState(false);
-  const [autoAdvance, setAutoAdvance] = useState(true);
+  const [autoAdvance, setAutoAdvance] = useState(getStoredAutoAdvance);
 
   const loadRows = (off, lim) => {
     setLoading(true);
@@ -78,6 +92,24 @@ export default function ChunkEditor() {
     if (!claimed || typeof sessionStorage === 'undefined') return;
     sessionStorage.setItem(LAST_VIEWED_OFFSET_KEY(id, chunkIndex), String(offset));
   }, [id, chunkIndex, claimed, offset]);
+
+  // Arrow keys: Left = Previous, Right = Next (only when not in an input/textarea/select)
+  useEffect(() => {
+    if (!claimed) return;
+    const onKeyDown = (e) => {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (offset > 0) goPrev();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (offset + limit < data.totalInChunk) goNext();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [claimed, offset, limit, data.totalInChunk]);
 
   const handleClaim = async (e) => {
     e.preventDefault();
@@ -177,10 +209,12 @@ export default function ChunkEditor() {
   const goPrev = () => {
     markCurrentPageAsViewed();
     setOffset((o) => Math.max(0, o - limit));
+    if (typeof window !== 'undefined') window.scrollTo(0, 0);
   };
   const goNext = () => {
     markCurrentPageAsViewed();
     setOffset((o) => Math.min(data.totalInChunk - limit, o + limit));
+    if (typeof window !== 'undefined') window.scrollTo(0, 0);
   };
 
   if (!claimed) {
@@ -189,16 +223,16 @@ export default function ChunkEditor() {
     if (!resumeChecked && mayResume) {
       return (
         <div className="card">
-          <h1>Chunk {Number(chunkIndex) + 1}</h1>
-          <p><button type="button" onClick={() => navigate(`/sessions/${id}`)}>← Back to session</button></p>
+          <p style={{ margin: '0 0 0.5rem 0' }}><button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`)}>← Back to session</button></p>
+          <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
           <p>Resuming...</p>
         </div>
       );
     }
     return (
       <div className="card">
-        <h1>Chunk {Number(chunkIndex) + 1}</h1>
-        <p><button type="button" onClick={() => navigate(`/sessions/${id}`)}>← Back to session</button></p>
+        <p style={{ margin: '0 0 0.5rem 0' }}><button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`)}>← Back to session</button></p>
+        <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
         {error && <p style={{ color: 'red' }}>{error}</p>}
         <form onSubmit={handleClaim}>
           <p>
@@ -215,20 +249,35 @@ export default function ChunkEditor() {
 
   return (
     <div className="card">
-      <h1>Chunk {Number(chunkIndex) + 1}</h1>
-      <p>
-        <button type="button" onClick={() => navigate(`/sessions/${id}`)}>← Back to session</button>
+      <p style={{ margin: '0 0 0.5rem 0' }}>
+        <button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`)}>← Back to session</button>
+      </p>
+      <p style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap', margin: 0 }}>
+        <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
+        {name?.trim() && (
+          <span style={{ color: '#666' }}>Editing as: <strong>{name.trim()}</strong></span>
+        )}
       </p>
       <p>
         Rows per view:{' '}
-        <select value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setOffset(0); loadRows(0, Number(e.target.value)); }}>
+        <select value={limit} onChange={(e) => {
+          const val = Number(e.target.value);
+          setLimit(val);
+          setOffset(0);
+          loadRows(0, val);
+          if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(ROWS_PER_VIEW_KEY, String(val));
+        }}>
           {[1, 5, 10].map((n) => (
             <option key={n} value={n}>{n}</option>
           ))}
         </select>
         {' '}
         <label style={{ marginLeft: '1rem' }}>
-          <input type="checkbox" checked={autoAdvance} onChange={(e) => setAutoAdvance(e.target.checked)} />
+          <input type="checkbox" checked={autoAdvance} disabled={limit !== 1} onChange={(e) => {
+          const checked = e.target.checked;
+          setAutoAdvance(checked);
+          if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(AUTO_ADVANCE_KEY, checked ? 'true' : 'false');
+        }} />
           {' '}Auto-advance after saving {limit === 1 ? '(next row)' : ''}
         </label>
       </p>
@@ -237,16 +286,17 @@ export default function ChunkEditor() {
         <p>Loading...</p>
       ) : (
         <>
-          <p>
-            Rows {data.chunkStartRow != null ? (data.chunkStartRow + offset + 1) : (offset + 1)}–{data.chunkEndRow != null ? Math.min(data.chunkStartRow + offset + limit, data.chunkEndRow) : Math.min(offset + limit, data.totalInChunk)} of {data.chunkStartRow != null && data.chunkEndRow != null ? `${data.chunkStartRow + 1}–${data.chunkEndRow}` : data.totalInChunk}
-            {' '}
-            <button type="button" onClick={goPrev} disabled={offset === 0}>Previous</button>
-            {' '}
-            <button type="button" onClick={goNext} disabled={offset + limit >= data.totalInChunk}>Next</button>
+          <p style={{ textAlign: 'right', margin: 0 }}>
+            {(() => {
+              const start = data.chunkStartRow != null ? (data.chunkStartRow + offset + 1) : (offset + 1);
+              const end = data.chunkEndRow != null ? Math.min(data.chunkStartRow + offset + limit, data.chunkEndRow) : Math.min(offset + limit, data.totalInChunk);
+              const range = data.chunkStartRow != null && data.chunkEndRow != null ? `${data.chunkStartRow + 1}–${data.chunkEndRow}` : data.totalInChunk;
+              return start === end ? `Row ${start} of ${range}` : `Rows ${start}–${end} of ${range}`;
+            })()}
           </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {data.rows?.map((row) => (
-              <div key={row.rowIndex} className="card" style={{ flex: '1 1 280px', maxWidth: '100%' }}>
+              <div key={row.rowIndex} className="card card-row" style={{ width: '100%' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
                     <strong>Left (read-only)</strong>
@@ -287,7 +337,11 @@ export default function ChunkEditor() {
               </div>
             ))}
           </div>
-          <p style={{ marginTop: '1rem' }}>
+          <p style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+            <button type="button" className="btn-nav" style={{ flex: 1 }} onClick={goPrev} disabled={offset === 0}>Previous</button>
+            <button type="button" className="btn-nav" style={{ flex: 1 }} onClick={goNext} disabled={offset + limit >= data.totalInChunk}>Next</button>
+          </p>
+          <p style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
             <button type="button" className="primary" onClick={handleComplete}>
               Mark chunk as completed
             </button>

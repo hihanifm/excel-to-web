@@ -62,7 +62,7 @@ export default function SessionDetail() {
       </p>
 
       {stats && (
-        <div className="card" style={{ background: '#f9f9f9' }}>
+        <div className="card" style={{ background: '#f8fafc' }}>
           <h2>Stats</h2>
           <p>
             Total chunks: <strong>{stats.totalChunks}</strong>
