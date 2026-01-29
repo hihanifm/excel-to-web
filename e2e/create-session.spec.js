@@ -26,6 +26,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await expect(page.getByText(/left panel columns/i)).toBeVisible();
 
     await page.getByLabel('Name', { exact: true }).check();
+    await page.getByLabel('Status', { exact: true }).check();
     await page.getByRole('radio', { name: /new column/i }).check();
     await page.getByPlaceholder(/column name/i).fill('target');
     await page.getByRole('button', { name: /continue/i }).click();

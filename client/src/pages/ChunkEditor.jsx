@@ -16,7 +16,6 @@ export default function ChunkEditor() {
   const [error, setError] = useState('');
   const [resumeChecked, setResumeChecked] = useState(false);
   const [autoAdvance, setAutoAdvance] = useState(true);
-  const [justAdvanced, setJustAdvanced] = useState(false);
 
   const loadRows = (off, lim) => {
     setLoading(true);
@@ -134,8 +133,6 @@ export default function ChunkEditor() {
         if (nextOffset >= data.totalInChunk) {
           loadRows(offset, limit);
         } else if (autoAdvance && data.rows.length === 1) {
-          setJustAdvanced(true);
-          const t = setTimeout(() => setJustAdvanced(false), 2500);
           loadRows(offset + 1, limit);
           setOffset((o) => o + 1);
         }
@@ -225,11 +222,6 @@ export default function ChunkEditor() {
           {' '}Auto-advance after saving {limit === 1 ? '(next row)' : ''}
         </label>
       </p>
-      {justAdvanced && (
-        <p style={{ background: '#e3f2fd', padding: '0.5rem 0.75rem', borderRadius: 6 }}>
-          → Moved to next row
-        </p>
-      )}
       {error && <p style={{ color: 'red' }}>{error}</p>}
       {loading && data.rows.length === 0 ? (
         <p>Loading...</p>
@@ -263,7 +255,17 @@ export default function ChunkEditor() {
                           type="button"
                           className={row.targetCurrentValue === opt ? 'primary' : ''}
                           onClick={() => {
-                            if (opt !== row.targetCurrentValue) handleSetValue(row.rowOffsetInChunk, opt);
+                            if (opt !== row.targetCurrentValue) {
+                              handleSetValue(row.rowOffsetInChunk, opt);
+                            } else if (autoAdvance && data.rows.length === 1 && offset + 1 < data.totalInChunk) {
+                              fetch(`/api/sessions/${id}/chunks/${chunkIndex}/rows-viewed`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ name: name.trim(), rowOffsets: [row.rowOffsetInChunk] }),
+                              }).catch(() => {});
+                              loadRows(offset + 1, limit);
+                              setOffset((o) => o + 1);
+                            }
                           }}
                         >
                           {opt}
