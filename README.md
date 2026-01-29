@@ -7,6 +7,15 @@ Web app for chunked editing of large Excel files: upload, choose sheet, configur
 - **Backend:** Node.js, Express, SQLite (better-sqlite3), ExcelJS, multer
 - **Frontend:** React, Vite, React Router
 
+## Sample data
+
+A sample Excel file with 150 rows is in `samples/sample.xlsx` (columns: ID, Name, Department, Status, Date, Notes). To regenerate or create another:
+
+```bash
+cd server && node scripts/generate-sample.js
+```
+Output goes to `samples/sample.xlsx`.
+
 ## Setup
 
 ### Backend
