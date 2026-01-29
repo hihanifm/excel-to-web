@@ -3,6 +3,20 @@ import { useNavigate } from 'react-router-dom';
 
 const STEPS = ['Upload', 'Choose sheet', 'Choose columns', 'Configure options'];
 
+/** Parse response as JSON; throw with a clear message if HTML or error. */
+async function parseJsonResponse(r) {
+  const text = await r.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (_) {
+    const msg = text.startsWith('<') ? `Server returned an error (${r.status}). Check that the API is running.` : (text.slice(0, 150) || r.statusText || 'Request failed');
+    throw new Error(msg);
+  }
+  if (!r.ok) throw new Error(data.error || data.message || `Request failed (${r.status})`);
+  return data;
+}
+
 export default function SessionCreate() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -32,7 +46,7 @@ export default function SessionCreate() {
     }
     setLoading(true);
     fetch('/api/sessions/upload', { method: 'POST', body: fd })
-      .then((r) => r.json())
+      .then(parseJsonResponse)
       .then((data) => {
         setSessionId(data.sessionId);
         setSheetNames(data.sheetNames || []);
@@ -57,7 +71,7 @@ export default function SessionCreate() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sheetName: selectedSheet, chunkSize }),
     })
-      .then((r) => r.json())
+      .then(parseJsonResponse)
       .then((data) => {
         setHeaders(data.headers || []);
         setTotalRows(data.totalRows || 0);
@@ -87,7 +101,7 @@ export default function SessionCreate() {
         targetColumnIsNew,
       }),
     })
-      .then((r) => r.json())
+      .then(parseJsonResponse)
       .then(() => setStep(4))
       .catch((err) => setError(err.message || 'Failed'))
       .finally(() => setLoading(false));
@@ -105,7 +119,7 @@ export default function SessionCreate() {
     const col = prefillColumn || (targetColumnIsNew ? null : targetColumn);
     if (!col) return;
     fetch(`/api/sessions/${sessionId}/columns/${encodeURIComponent(col)}/unique`)
-      .then((r) => r.json())
+      .then(parseJsonResponse)
       .then((data) => setTargetOptions((data.values || []).join('\n')))
       .catch(console.error);
   };
@@ -125,9 +139,9 @@ export default function SessionCreate() {
     fetch(`/api/sessions/${sessionId}/config/options`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targetOptions: options }),
+      body: JSON.stringify({ targetOptions: options, referenceColumn: prefillColumn || null }),
     })
-      .then((r) => r.json())
+      .then(parseJsonResponse)
       .then(() => navigate(`/sessions/${sessionId}`))
       .catch((err) => setError(err.message || 'Failed'))
       .finally(() => setLoading(false));

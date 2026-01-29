@@ -71,11 +71,13 @@ router.get('/:chunkIndex/row/:rowOffset', (req, res) => {
     for (const [colName, colIdx] of Object.entries(leftValuesByHeader)) {
       if (colIdx !== -1) leftValues[colName] = data[colIdx] != null ? data[colIdx] : '';
     }
-    const targetCurrentValue = targetColIndex >= 0 ? (data[targetColIndex] != null ? data[targetColIndex] : '') : '';
     const edit = sessionService.getRowEdit(sessionId, r.row_index);
+    const targetCurrentValue = edit != null
+      ? edit
+      : (targetColIndex >= 0 && data[targetColIndex] != null && data[targetColIndex] !== '' ? String(data[targetColIndex]) : '');
     return {
       leftValues,
-      targetCurrentValue: edit != null ? edit : targetCurrentValue,
+      targetCurrentValue,
       rowOffsetInChunk: r.row_index - range.startRow,
       rowIndex: r.row_index,
     };

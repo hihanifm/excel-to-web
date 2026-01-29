@@ -13,6 +13,11 @@ export function getDb(dbPath) {
     db.pragma('journal_mode = WAL');
     const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
     db.exec(schema);
+    try {
+      db.exec('ALTER TABLE session_config ADD COLUMN reference_column TEXT');
+    } catch (_) {
+      /* column may already exist */
+    }
   }
   return db;
 }

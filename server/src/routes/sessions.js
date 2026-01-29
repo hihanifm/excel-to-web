@@ -124,13 +124,18 @@ router.get('/:id/columns/:columnName/unique', (req, res) => {
   res.json({ values });
 });
 
-// PUT /api/sessions/:id/config/options — body: { targetOptions: string[] }
+// PUT /api/sessions/:id/config/options — body: { targetOptions: string[], referenceColumn?: string }
 router.put('/:id/config/options', (req, res) => {
-  const sessionId = Number(req.params.id);
-  if (!sessionService.getSession(sessionId)) return res.status(404).json({ error: 'Session not found' });
-  const { targetOptions } = req.body;
-  sessionService.updateSessionConfigOptions(sessionId, targetOptions || []);
-  res.json({ ok: true });
+  try {
+    const sessionId = Number(req.params.id);
+    if (!sessionService.getSession(sessionId)) return res.status(404).json({ error: 'Session not found' });
+    const { targetOptions, referenceColumn } = req.body;
+    sessionService.updateSessionConfigOptions(sessionId, { targetOptions: targetOptions || [], referenceColumn: referenceColumn || null });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'Failed to save options' });
+  }
 });
 
 export default router;

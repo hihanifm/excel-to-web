@@ -84,10 +84,38 @@ export function upsertSessionConfig(sessionId, { leftColumns, targetColumn, targ
   ).run(sessionId, JSON.stringify(leftColumns || []), targetColumn, targetColumnIsNew ? 1 : 0);
 }
 
-export function updateSessionConfigOptions(sessionId, targetOptions) {
+export function updateSessionConfigOptions(sessionId, { targetOptions, referenceColumn }) {
   const db = getDb(process.env.DB_PATH);
-  db.prepare('UPDATE session_config SET target_options = ? WHERE session_id = ?')
-    .run(JSON.stringify(targetOptions || []), sessionId);
+  db.prepare(
+    'UPDATE session_config SET target_options = ?, reference_column = ? WHERE session_id = ?'
+  ).run(JSON.stringify(targetOptions || []), referenceColumn || null, sessionId);
+  if (referenceColumn) {
+    prepopulateRowEditsFromReferenceColumn(sessionId);
+  }
+}
+
+/** Pre-populate row_edits with reference column values so target column is "as is" everywhere. */
+function prepopulateRowEditsFromReferenceColumn(sessionId) {
+  const config = getSessionConfig(sessionId);
+  if (!config?.reference_column) return;
+  const session = getSession(sessionId);
+  if (!session) return;
+  const headers = session.headers;
+  const refColIndex = headers.indexOf(config.reference_column);
+  if (refColIndex === -1) return;
+  const db = getDb(process.env.DB_PATH);
+  const rows = db.prepare(
+    'SELECT row_index, data FROM session_rows WHERE session_id = ? ORDER BY row_index'
+  ).all(sessionId);
+  const stmt = db.prepare(
+    'INSERT INTO row_edits (session_id, row_index, target_value) VALUES (?, ?, ?) ON CONFLICT(session_id, row_index) DO UPDATE SET target_value = excluded.target_value'
+  );
+  for (const row of rows) {
+    const data = JSON.parse(row.data);
+    const val = data[refColIndex];
+    const targetValue = val != null && val !== '' ? String(val) : '';
+    stmt.run(sessionId, row.row_index, targetValue);
+  }
 }
 
 export function listSessions() {

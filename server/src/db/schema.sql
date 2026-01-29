@@ -11,13 +11,14 @@ CREATE TABLE IF NOT EXISTS sessions (
   status TEXT NOT NULL DEFAULT 'draft'
 );
 
--- Session config: left columns, target column, target options (after step 3 & 4)
+-- Session config: left columns, target column, target options, reference column for pre-fill (after step 3 & 4)
 CREATE TABLE IF NOT EXISTS session_config (
   session_id INTEGER PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
   left_columns TEXT NOT NULL DEFAULT '[]',
   target_column TEXT NOT NULL,
   target_column_is_new INTEGER NOT NULL DEFAULT 0,
-  target_options TEXT NOT NULL DEFAULT '[]'
+  target_options TEXT NOT NULL DEFAULT '[]',
+  reference_column TEXT
 );
 
 -- One row per data row; data = JSON array of cell values in header order
