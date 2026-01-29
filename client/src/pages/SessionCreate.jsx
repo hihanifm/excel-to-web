@@ -22,6 +22,7 @@ export default function SessionCreate() {
   const [step, setStep] = useState(1);
   const [sessionId, setSessionId] = useState(null);
   const [sheetNames, setSheetNames] = useState([]);
+  const [sessionName, setSessionName] = useState('');
   const [chunkSize, setChunkSize] = useState(100);
   const [selectedSheet, setSelectedSheet] = useState('');
   const [headers, setHeaders] = useState([]);
@@ -40,6 +41,7 @@ export default function SessionCreate() {
     setError('');
     const form = e.target;
     const fd = new FormData(form);
+    if (sessionName.trim()) fd.set('name', sessionName.trim());
     if (!fd.get('file')) {
       setError('Select a file');
       return;
@@ -168,6 +170,16 @@ export default function SessionCreate() {
       {step === 1 && (
         <form onSubmit={handleUpload}>
           <p>Upload an Excel file. Chunk size = number of rows per chunk.</p>
+          <p>
+            <label>Session name (optional): </label>
+            <input
+              type="text"
+              value={sessionName}
+              onChange={(e) => setSessionName(e.target.value)}
+              placeholder="e.g. Q1 review"
+              style={{ minWidth: '12rem' }}
+            />
+          </p>
           <p>
             <input type="file" name="file" accept=".xlsx,.xls" required />
           </p>
