@@ -18,6 +18,12 @@ const getStoredAutoAdvance = () => {
   return v !== 'false';
 };
 
+/** Insert newline before each "token:" in conversation-style text for display. */
+const formatConversation = (str) => {
+  if (str == null || typeof str !== 'string') return '';
+  return str.replace(/(\s+)([A-Za-z][A-Za-z0-9_]*\s*:)/g, '\n$2');
+};
+
 export default function ChunkEditor() {
   const { id, chunkIndex } = useParams();
   const navigate = useNavigate();
@@ -302,7 +308,9 @@ export default function ChunkEditor() {
                     <strong>Left (read-only)</strong>
                     <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
                       {Object.entries(row.leftValues || {}).map(([k, v]) => (
-                        <li key={k}><strong>{k}:</strong> {v ?? ''}</li>
+                        <li key={k}><strong>{k}:</strong>{' '}
+                          <span style={{ whiteSpace: 'pre-wrap' }}>{formatConversation(v ?? '')}</span>
+                        </li>
                       ))}
                     </ul>
                   </div>
