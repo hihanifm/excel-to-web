@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 
 const CLAIMANT_STORAGE_KEY = (sessionId) => `excel-app_claimant_${sessionId}`;
@@ -18,11 +18,22 @@ const getStoredAutoAdvance = () => {
   return v !== 'false';
 };
 
+const TOKEN_PATTERN = /([A-Za-z][A-Za-z0-9_]*\s*:)/g;
+
 /** Insert newline before each "token:" in conversation-style text for display. */
 const formatConversation = (str) => {
   if (str == null || typeof str !== 'string') return '';
   return str.replace(/(\s+)([A-Za-z][A-Za-z0-9_]*\s*:)/g, '\n$2');
 };
+
+/** Split formatted conversation string and return React nodes with "token:" in bold. */
+function renderConversation(str) {
+  const formatted = formatConversation(str ?? '');
+  const segments = formatted.split(TOKEN_PATTERN);
+  return segments.map((seg, i) => (
+    <Fragment key={i}>{i % 2 === 1 ? <strong>{seg}</strong> : seg}</Fragment>
+  ));
+}
 
 export default function ChunkEditor() {
   const { id, chunkIndex } = useParams();
@@ -307,9 +318,17 @@ export default function ChunkEditor() {
                   <div>
                     <strong>Left (read-only)</strong>
                     <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
-                      {Object.entries(row.leftValues || {}).map(([k, v]) => (
-                        <li key={k}><strong>{k}:</strong>{' '}
-                          <span style={{ whiteSpace: 'pre-wrap' }}>{formatConversation(v ?? '')}</span>
+                      {Object.entries(row.leftValues || {}).map(([k, v], idx, arr) => (
+                        <li
+                          key={k}
+                          style={{
+                            borderBottom: idx < arr.length - 1 ? '1px solid #ddd' : undefined,
+                            paddingBottom: idx < arr.length - 1 ? '0.75rem' : 0,
+                            marginBottom: idx < arr.length - 1 ? '0.75rem' : 0,
+                          }}
+                        >
+                          <strong>{k}:</strong>{' '}
+                          <span style={{ whiteSpace: 'pre-wrap' }}>{renderConversation(v)}</span>
                         </li>
                       ))}
                     </ul>
