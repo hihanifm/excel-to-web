@@ -1,0 +1,11 @@
+{
+  "name": "excel-to-web",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "setup": "./scripts/setup.sh",
+    "start": "./scripts/start.sh",
+    "stop": "./scripts/stop.sh",
+    "status": "./scripts/status.sh"
+  }
+}

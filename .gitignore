@@ -1,0 +1,12 @@
+node_modules/
+server/data/*.db
+server/data/*.db-shm
+server/data/*.db-wal
+server/data/uploads/
+server/data/*.xlsx
+.env
+client/dist/
+*.log
+.DS_Store
+.server.pid
+.frontend.pid

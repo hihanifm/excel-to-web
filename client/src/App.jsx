@@ -1,0 +1,23 @@
+import { Routes, Route, Link } from 'react-router-dom';
+import SessionList from './pages/SessionList';
+import SessionCreate from './pages/SessionCreate';
+import SessionDetail from './pages/SessionDetail';
+import ChunkEditor from './pages/ChunkEditor';
+
+export default function App() {
+  return (
+    <div className="container">
+      <nav style={{ marginBottom: '1rem' }}>
+        <Link to="/">Sessions</Link>
+        {' | '}
+        <Link to="/create">Create session</Link>
+      </nav>
+      <Routes>
+        <Route path="/" element={<SessionList />} />
+        <Route path="/create" element={<SessionCreate />} />
+        <Route path="/sessions/:id" element={<SessionDetail />} />
+        <Route path="/sessions/:id/chunks/:chunkIndex/edit" element={<ChunkEditor />} />
+      </Routes>
+    </div>
+  );
+}
