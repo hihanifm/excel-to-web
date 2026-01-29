@@ -68,9 +68,9 @@ test.describe.serial('Session and chunk e2e', () => {
     await expect(page.getByText(/rows per view/i)).toBeVisible();
 
     await page.locator('select').selectOption('5');
-    await expect(page.getByText(/rows 1–5 of/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/rows 1[-–]5 of/i)).toBeVisible({ timeout: 10000 });
 
-    const rowCards = page.locator('.card').filter({ has: page.locator('ul') });
+    const rowCards = page.locator('.card[style*="280px"]');
     await expect(rowCards).toHaveCount(5);
     for (let i = 0; i < 5; i++) {
       await rowCards.nth(i).getByRole('button').first().click();

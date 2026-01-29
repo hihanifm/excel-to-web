@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const CLAIMANT_STORAGE_KEY = (sessionId) => `excel-app_claimant_${sessionId}`;
+const LAST_VIEWED_OFFSET_KEY = (sessionId, chunkIndex) => `excel-app_lastOffset_${sessionId}_chunk_${chunkIndex}`;
 
 export default function ChunkEditor() {
   const { id, chunkIndex } = useParams();
@@ -48,9 +49,14 @@ export default function ChunkEditor() {
         }
         setName(storedName.trim());
         setClaimed(true);
-        const nextRow = chunk.rowsEditedInChunk ?? 0;
         const totalInChunk = chunk.rowsInChunk ?? chunk.end_row - chunk.start_row;
-        setOffset(Math.min(nextRow, Math.max(0, totalInChunk - 1)));
+        const storedOffset = typeof sessionStorage !== 'undefined'
+          ? sessionStorage.getItem(LAST_VIEWED_OFFSET_KEY(id, chunkIndex))
+          : null;
+        const resumeOffset = storedOffset != null
+          ? Math.min(Math.max(0, parseInt(storedOffset, 10)), Math.max(0, totalInChunk - 1))
+          : Math.min(chunk.rowsEditedInChunk ?? 0, Math.max(0, totalInChunk - 1));
+        setOffset(resumeOffset);
         setResumeChecked(true);
       })
       .catch(() => setResumeChecked(true));
@@ -59,6 +65,11 @@ export default function ChunkEditor() {
   useEffect(() => {
     if (claimed) loadRows(offset, limit);
   }, [id, chunkIndex, claimed, offset, limit]);
+
+  useEffect(() => {
+    if (!claimed || typeof sessionStorage === 'undefined') return;
+    sessionStorage.setItem(LAST_VIEWED_OFFSET_KEY(id, chunkIndex), String(offset));
+  }, [id, chunkIndex, claimed, offset]);
 
   const handleClaim = async (e) => {
     e.preventDefault();
@@ -145,8 +156,26 @@ export default function ChunkEditor() {
       .catch((err) => setError(err.message));
   };
 
-  const goPrev = () => setOffset((o) => Math.max(0, o - limit));
-  const goNext = () => setOffset((o) => Math.min(data.totalInChunk - limit, o + limit));
+  const markCurrentPageAsViewed = () => {
+    if (!name?.trim() || data.totalInChunk === 0) return;
+    const rowOffsets = [];
+    for (let i = 0; i < limit && offset + i < data.totalInChunk; i++) rowOffsets.push(offset + i);
+    if (rowOffsets.length === 0) return;
+    fetch(`/api/sessions/${id}/chunks/${chunkIndex}/rows-viewed`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim(), rowOffsets }),
+    }).catch(() => {});
+  };
+
+  const goPrev = () => {
+    markCurrentPageAsViewed();
+    setOffset((o) => Math.max(0, o - limit));
+  };
+  const goNext = () => {
+    markCurrentPageAsViewed();
+    setOffset((o) => Math.min(data.totalInChunk - limit, o + limit));
+  };
 
   if (!claimed) {
     const storedName = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(CLAIMANT_STORAGE_KEY(id)) : null;
@@ -207,7 +236,7 @@ export default function ChunkEditor() {
       ) : (
         <>
           <p>
-            Rows {offset + 1}–{Math.min(offset + limit, data.totalInChunk)} of {data.totalInChunk}
+            Rows {data.chunkStartRow != null ? (data.chunkStartRow + offset + 1) : (offset + 1)}–{data.chunkEndRow != null ? Math.min(data.chunkStartRow + offset + limit, data.chunkEndRow) : Math.min(offset + limit, data.totalInChunk)} of {data.chunkStartRow != null && data.chunkEndRow != null ? `${data.chunkStartRow + 1}–${data.chunkEndRow}` : data.totalInChunk}
             {' '}
             <button type="button" onClick={goPrev} disabled={offset === 0}>Previous</button>
             {' '}

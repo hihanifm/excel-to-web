@@ -18,8 +18,21 @@ const HEADERS = ['ID', 'Name', 'Department', 'Status', 'Date', 'Notes'];
 const DEPARTMENTS = ['Engineering', 'Sales', 'Marketing', 'Support', 'HR', 'Finance'];
 const STATUSES = ['Pending', 'In Progress', 'Approved', 'Rejected', 'Needs Review'];
 
+const WORDS = [
+  'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'way', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use', 'that', 'with', 'this', 'from', 'they', 'have', 'been', 'more', 'when', 'will', 'your', 'said', 'each', 'them', 'than', 'then', 'some', 'into', 'only', 'other', 'about', 'many', 'these', 'first', 'would', 'there', 'could', 'after', 'where', 'which', 'their', 'being', 'while', 'should', 'through', 'during', 'before', 'between', 'without', 'something', 'everything', 'anything', 'nothing', 'everyone', 'someone', 'another', 'however', 'therefore', 'although', 'because', 'perhaps', 'already', 'always', 'sometimes', 'usually', 'really', 'actually', 'finally', 'quickly', 'slowly', 'carefully', 'recently', 'immediately', 'absolutely', 'definitely', 'certainly', 'obviously', 'apparently', 'basically', 'generally', 'normally', 'particularly', 'especially', 'exactly', 'completely', 'entirely', 'totally', 'fully', 'partly', 'mostly', 'mainly', 'primarily', 'originally', 'initially', 'eventually', 'gradually', 'suddenly', 'immediately',
+];
+
 function randomItem(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/** Return a random string of approximately wordCount words. */
+function randomWords(wordCount = 100) {
+  const out = [];
+  for (let i = 0; i < wordCount; i++) {
+    out.push(randomItem(WORDS));
+  }
+  return out.join(' ');
 }
 
 function randomDate(startYear = 2023, endYear = 2025) {
@@ -40,7 +53,7 @@ async function generate() {
   for (let i = 1; i <= ROW_COUNT; i++) {
     sheet.addRow([
       i,
-      `Person ${i}`,
+      randomWords(100),
       randomItem(DEPARTMENTS),
       randomItem(STATUSES),
       randomDate(),

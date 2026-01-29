@@ -237,6 +237,25 @@ export function saveRowEdit(sessionId, rowIndex, targetValue) {
   ).run(sessionId, rowIndex, targetValue);
 }
 
+/** Mark rows as viewed by user (set user_edited=1 so they count in progress). */
+export function markRowsAsViewed(sessionId, chunkIndex, name, rowOffsets) {
+  const assignee = getChunkAssignee(sessionId, chunkIndex);
+  if (assignee !== name) return { ok: false, error: 'Not your chunk' };
+  const range = getChunkRowRange(sessionId, chunkIndex);
+  if (!range) return { ok: false, error: 'Chunk not found' };
+  const totalInChunk = range.endRow - range.startRow;
+  const db = getDb(process.env.DB_PATH);
+  const stmt = db.prepare(
+    'UPDATE row_edits SET user_edited = 1 WHERE session_id = ? AND row_index = ?'
+  );
+  for (const off of rowOffsets) {
+    if (off < 0 || off >= totalInChunk) continue;
+    const rowIndex = range.startRow + off;
+    stmt.run(sessionId, rowIndex);
+  }
+  return { ok: true };
+}
+
 export function getUniqueColumnValues(sessionId, columnName) {
   const session = getSession(sessionId);
   if (!session) return [];

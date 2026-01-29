@@ -87,9 +87,22 @@ router.get('/:chunkIndex/row/:rowOffset', (req, res) => {
     rows: resultRows,
     offset: rowOffset,
     totalInChunk,
+    chunkStartRow: range.startRow,
+    chunkEndRow: range.endRow,
     headers: session.headers,
     targetOptions: config.target_options || [],
   });
+});
+
+// PUT /api/sessions/:id/chunks/:chunkIndex/rows-viewed — body: { name, rowOffsets: number[] }
+router.put('/:chunkIndex/rows-viewed', (req, res) => {
+  const sessionId = Number(req.params.id);
+  const chunkIndex = Number(req.params.chunkIndex);
+  const { name, rowOffsets } = req.body;
+  if (!name || !Array.isArray(rowOffsets)) return res.status(400).json({ error: 'name and rowOffsets required' });
+  const result = sessionService.markRowsAsViewed(sessionId, chunkIndex, name, rowOffsets);
+  if (!result.ok) return res.status(403).json({ error: result.error });
+  res.json({ ok: true });
 });
 
 // PUT /api/sessions/:id/chunks/:chunkIndex/row/:rowOffset
