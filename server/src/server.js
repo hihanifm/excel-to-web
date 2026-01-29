@@ -28,6 +28,7 @@ app.use('/api/sessions', sessionsRouter);
 app.use('/api/sessions/:id/chunks', chunksRouter);
 app.use('/api/sessions/:id/export', exportRouter);
 
+// In production we run a single process: backend serves the built frontend from client/dist
 const clientDist = path.join(__dirname, '../../client/dist');
 if (existsSync(clientDist)) {
   app.use(express.static(clientDist));
@@ -35,6 +36,8 @@ if (existsSync(clientDist)) {
     if (req.path.startsWith('/api')) return next();
     res.sendFile(path.join(clientDist, 'index.html'));
   });
+} else if (process.env.NODE_ENV === 'production') {
+  console.warn('Warning: client/dist not found. Build the client first (e.g. cd client && npm run build). API only until then.');
 }
 
 app.listen(PORT, '0.0.0.0', () => {

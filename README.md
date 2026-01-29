@@ -63,6 +63,25 @@ npm run start -- -p   # builds client if needed, starts backend only on 36000
 npm run stop
 ```
 
+### Docker (Linux)
+
+Single process in the container: backend serves the built frontend on port 3000.
+
+```bash
+# Build and run with Docker
+docker build -t excel-to-web .
+docker run -p 3000:3000 -v excel-data:/app/server/data excel-to-web
+# Open http://localhost:3000
+```
+
+Or with Docker Compose (persists db and uploads in a volume):
+
+```bash
+docker compose up -d --build
+# Open http://localhost:3000
+docker compose down   # stop; data kept in volume excel-data
+```
+
 ### Manual / PM2 (Linux)
 
 - Dev: `cd server && PORT=36000 npm run dev` and `cd client && npm run dev` (frontend uses 36001).

@@ -28,15 +28,16 @@ stop_ports() {
 stop_ports $BACKEND_PORT $FRONTEND_PORT
 
 if [ "$PROD" = true ]; then
+  # Prod: single process — backend serves the built frontend (no separate Vite)
   if [ ! -d "$ROOT/client/dist" ]; then
     echo "Building client for prod..."
     (cd client && npm run build)
   fi
-  echo "=== Starting backend (prod) on port $BACKEND_PORT ==="
+  echo "=== Starting backend (prod, single process) on port $BACKEND_PORT ==="
   (cd server && PORT=$BACKEND_PORT NODE_ENV=production node src/server.js) &
   echo $! > "$ROOT/.server.pid"
   echo "Backend PID: $(cat "$ROOT/.server.pid")"
-  echo "Prod: backend only at http://localhost:$BACKEND_PORT"
+  echo "Prod: one process at http://localhost:$BACKEND_PORT (API + frontend)"
 else
   echo "=== Starting backend (dev) on port $BACKEND_PORT ==="
   (cd server && PORT=$BACKEND_PORT node src/server.js) &
