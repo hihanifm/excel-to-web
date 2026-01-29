@@ -108,7 +108,7 @@ function prepopulateRowEditsFromReferenceColumn(sessionId) {
     'SELECT row_index, data FROM session_rows WHERE session_id = ? ORDER BY row_index'
   ).all(sessionId);
   const stmt = db.prepare(
-    'INSERT INTO row_edits (session_id, row_index, target_value) VALUES (?, ?, ?) ON CONFLICT(session_id, row_index) DO UPDATE SET target_value = excluded.target_value'
+    'INSERT INTO row_edits (session_id, row_index, target_value, user_edited) VALUES (?, ?, ?, 0) ON CONFLICT(session_id, row_index) DO UPDATE SET target_value = excluded.target_value, user_edited = 0'
   );
   for (const row of rows) {
     const data = JSON.parse(row.data);
@@ -134,7 +134,7 @@ export function getSessionStats(sessionId) {
     'SELECT status FROM chunks WHERE session_id = ?'
   ).all(sessionId);
   const rowsEdited = db.prepare(
-    'SELECT COUNT(*) as c FROM row_edits WHERE session_id = ?'
+    'SELECT COUNT(*) as c FROM row_edits WHERE session_id = ? AND user_edited = 1'
   ).get(sessionId).c;
   const totalChunks = chunks.length;
   const chunksUnclaimed = chunks.filter((c) => c.status === 'unclaimed').length;
@@ -159,7 +159,7 @@ export function getChunks(sessionId) {
   ).all(sessionId);
   const rowsEditedCount = db.prepare(
     `SELECT chunk_index, COUNT(*) as c FROM chunks ch
-     JOIN row_edits re ON re.session_id = ch.session_id AND re.row_index >= ch.start_row AND re.row_index < ch.end_row
+     JOIN row_edits re ON re.session_id = ch.session_id AND re.row_index >= ch.start_row AND re.row_index < ch.end_row AND re.user_edited = 1
      WHERE ch.session_id = ? GROUP BY ch.chunk_index`
   ).all(sessionId);
   const byChunk = Object.fromEntries(rowsEditedCount.map((r) => [r.chunk_index, r.c]));
@@ -233,7 +233,7 @@ export function getRowEdit(sessionId, rowIndex) {
 export function saveRowEdit(sessionId, rowIndex, targetValue) {
   const db = getDb(process.env.DB_PATH);
   db.prepare(
-    'INSERT INTO row_edits (session_id, row_index, target_value) VALUES (?, ?, ?) ON CONFLICT(session_id, row_index) DO UPDATE SET target_value = excluded.target_value'
+    'INSERT INTO row_edits (session_id, row_index, target_value, user_edited) VALUES (?, ?, ?, 1) ON CONFLICT(session_id, row_index) DO UPDATE SET target_value = excluded.target_value, user_edited = 1'
   ).run(sessionId, rowIndex, targetValue);
 }
 

@@ -42,11 +42,12 @@ CREATE TABLE IF NOT EXISTS chunks (
   PRIMARY KEY (session_id, chunk_index)
 );
 
--- Row-level edits: only target column updated
+-- Row-level edits: only target column updated; user_edited=1 when user changed it, 0 when pre-populated
 CREATE TABLE IF NOT EXISTS row_edits (
   session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   row_index INTEGER NOT NULL,
   target_value TEXT NOT NULL,
+  user_edited INTEGER NOT NULL DEFAULT 1,
   PRIMARY KEY (session_id, row_index)
 );
 
