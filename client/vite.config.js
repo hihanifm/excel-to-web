@@ -14,6 +14,7 @@ export default defineConfig({
   },
   server: {
     port: 36001,
+    host: true, // listen on all interfaces (0.0.0.0) so you can access by IP
     proxy: {
       '/api': {
         target: 'http://localhost:36000',

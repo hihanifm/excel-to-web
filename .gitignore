@@ -10,6 +10,8 @@ client/dist/
 .DS_Store
 .server.pid
 .frontend.pid
+server.pids
+logs/
 test-results/
 playwright-report/
 .playwright/
