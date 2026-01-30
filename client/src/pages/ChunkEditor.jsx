@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 
 const CLAIMANT_STORAGE_KEY = (sessionId) => `excel-app_claimant_${sessionId}`;
 const LAST_VIEWED_OFFSET_KEY = (sessionId, chunkIndex) => `excel-app_lastOffset_${sessionId}_chunk_${chunkIndex}`;
+const LAST_UPDATED_ROW_KEY = (sessionId, chunkIndex) => `excel-app_lastUpdatedRow_${sessionId}_chunk_${chunkIndex}`;
 const ROWS_PER_VIEW_KEY = 'excel-app_rowsPerView';
 const AUTO_ADVANCE_KEY = 'excel-app_autoAdvance';
 const SOUND_ON_SELECT_KEY = 'excel-app_soundOnSelect';
@@ -214,6 +215,9 @@ export default function ChunkEditor() {
       .then((r) => {
         if (!r.ok) throw new Error('Save failed');
         if (data.totalInChunk === 0) return;
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem(LAST_UPDATED_ROW_KEY(id, chunkIndex), String(rowOffsetInChunk));
+        }
         const idx = data.rows.findIndex((r) => r.rowOffsetInChunk === rowOffsetInChunk);
         if (idx >= 0 && idx < data.rows.length) {
           setData((prev) => ({
@@ -459,8 +463,29 @@ export default function ChunkEditor() {
               </div>
             ))}
           </div>
-          <p style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+          <p style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <button type="button" className="btn-nav" style={{ flex: 1 }} onClick={goPrev} disabled={offset === 0}>Prev (left arrow)</button>
+            {(() => {
+              if (typeof sessionStorage === 'undefined' || !data.totalInChunk) return null;
+              const v = sessionStorage.getItem(LAST_UPDATED_ROW_KEY(id, chunkIndex));
+              const rowOff = v != null ? parseInt(v, 10) : NaN;
+              if (Number.isNaN(rowOff) || rowOff < 0 || rowOff >= data.totalInChunk) return null;
+              const displayRow = data.chunkStartRow != null ? data.chunkStartRow + rowOff + 1 : rowOff + 1;
+              return (
+                <button
+                  type="button"
+                  className="btn-nav"
+                  onClick={() => {
+                    setOffset(rowOff);
+                    loadRows(rowOff, limit);
+                    setGoToRowInput('');
+                    if (typeof window !== 'undefined') window.scrollTo(0, 0);
+                  }}
+                >
+                  Go to last updated (row {displayRow})
+                </button>
+              );
+            })()}
             <button type="button" className="btn-nav" style={{ flex: 1 }} onClick={goNext} disabled={offset + limit >= data.totalInChunk}>Next (right arrow)</button>
           </p>
           <p style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
