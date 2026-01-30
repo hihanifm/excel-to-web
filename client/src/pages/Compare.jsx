@@ -67,7 +67,7 @@ export default function Compare() {
     fetch(`/api/sessions/${sessionId}/sheet`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheetName: selectedSheet, chunkSize: 100, compare: true }),
+      body: JSON.stringify({ sheetName: selectedSheet, compare: true }),
     })
       .then(parseJsonResponse)
       .then((data) => {

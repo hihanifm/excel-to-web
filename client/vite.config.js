@@ -5,12 +5,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const pkg = JSON.parse(readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+// Single source of truth: root package.json
+const rootPkg = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 
 export default defineConfig({
   plugins: [react()],
   define: {
-    __APP_VERSION__: JSON.stringify(pkg.version || '0.0.1'),
+    __APP_VERSION__: JSON.stringify(rootPkg.version || '0.0.0'),
   },
   server: {
     port: 36001,

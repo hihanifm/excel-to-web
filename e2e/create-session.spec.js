@@ -15,13 +15,19 @@ test.describe.serial('Session and chunk e2e', () => {
     await page.goto('/create');
 
     await expect(page.getByRole('heading', { name: /create session/i })).toBeVisible();
-    await page.locator('input[name="chunkSize"]').fill('50');
     await page.locator('input[type="file"]').setInputFiles(SAMPLE_PATH);
     await page.getByRole('button', { name: /^upload$/i }).click();
     await page.waitForURL(/\/create$/);
     await expect(page.getByText(/choose a sheet/i)).toBeVisible();
 
     await page.getByRole('combobox').selectOption({ label: 'Sample' });
+    await page.getByRole('button', { name: /continue/i }).click();
+    await expect(page.getByText(/sheet has.*rows/i)).toBeVisible();
+    // Chunking: range 1–50, equal size 25 → 2 chunks (1–25, 26–50)
+    const chunkingForm = page.locator('form');
+    await chunkingForm.locator('input[type="number"]').nth(0).fill('1');
+    await chunkingForm.locator('input[type="number"]').nth(1).fill('50');
+    await chunkingForm.locator('input[type="number"]').nth(2).fill('25');
     await page.getByRole('button', { name: /continue/i }).click();
     await expect(page.getByText(/left panel columns/i)).toBeVisible();
 
@@ -44,6 +50,13 @@ test.describe.serial('Session and chunk e2e', () => {
 
     await expect(page.getByRole('heading', { name: 'Stats' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible();
+    // Chunking was configured as range 1–50, equal size 25 → exactly 2 chunks
+    const chunksTable = page.getByRole('table');
+    await expect(chunksTable).toBeVisible();
+    await expect(chunksTable).toContainText('1–25');
+    await expect(chunksTable).toContainText('26–50');
+    const chunkRows = page.getByRole('table').locator('tbody tr');
+    await expect(chunkRows).toHaveCount(2);
 
     await page.waitForTimeout(DELAY_AFTER_SESSION_MS);
   });

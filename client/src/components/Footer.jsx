@@ -1,7 +1,7 @@
 import { useApiStatus } from '../App';
 
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.1';
-const APP_NAME = 'Excel Chunked Web App';
+const APP_NAME = 'Excel Data Labeling';
 
 export default function Footer() {
   const { apiStatus } = useApiStatus();

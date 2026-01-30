@@ -19,12 +19,12 @@ export function getSession(id) {
   };
 }
 
-export function updateSessionSheet(id, sheetName, headers, totalRows, chunkSize, options = {}) {
+export function updateSessionSheet(id, sheetName, headers, totalRows, options = {}) {
   const db = getDb(process.env.DB_PATH);
   const status = options.compareMode ? 'draft' : 'configured';
   db.prepare(
-    'UPDATE sessions SET sheet_name = ?, headers = ?, total_rows = ?, chunk_size = ?, status = ? WHERE id = ?'
-  ).run(sheetName, JSON.stringify(headers), totalRows, chunkSize, status, id);
+    'UPDATE sessions SET sheet_name = ?, headers = ?, total_rows = ?, status = ? WHERE id = ?'
+  ).run(sheetName, JSON.stringify(headers), totalRows, status, id);
 }
 
 export function deleteSessionRowsAndChunks(sessionId) {
@@ -47,19 +47,53 @@ export function insertSessionRowsBatch(sessionId, rows) {
   insertMany(rows);
 }
 
-export function createChunks(sessionId, totalRows, chunkSize) {
+export function createChunks(sessionId, totalRows, options = {}) {
+  const rangeStart = options.rangeStart ?? 0;
+  const rangeEnd = options.rangeEnd ?? totalRows;
+  const chunkSizes = Array.isArray(options.chunkSizes) && options.chunkSizes.length > 0
+    ? options.chunkSizes.filter((s) => Number(s) > 0).map(Number)
+    : [100];
+  const start = Math.max(0, rangeStart);
+  const end = Math.min(totalRows, rangeEnd);
   const db = getDb(process.env.DB_PATH);
   const stmt = db.prepare(
     'INSERT INTO chunks (session_id, chunk_index, start_row, end_row, status) VALUES (?, ?, ?, ?, ?)'
   );
   const insertAll = db.transaction(() => {
-    for (let start = 0; start < totalRows; start += chunkSize) {
-      const end = Math.min(start + chunkSize, totalRows);
-      const chunkIndex = Math.floor(start / chunkSize);
-      stmt.run(sessionId, chunkIndex, start, end, 'unclaimed');
+    let cursor = start;
+    let chunkIndex = 0;
+    while (cursor < end) {
+      const sizeIndex = chunkIndex % chunkSizes.length;
+      const size = chunkSizes[sizeIndex];
+      const chunkEnd = Math.min(cursor + size, end);
+      stmt.run(sessionId, chunkIndex, cursor, chunkEnd, 'unclaimed');
+      cursor = chunkEnd;
+      chunkIndex += 1;
     }
   });
   insertAll();
+}
+
+export function setChunking(sessionId, totalRows, options = {}) {
+  const rangeStart = options.rangeStart ?? 0;
+  const rangeEnd = options.rangeEnd ?? totalRows;
+  const chunkSizes = Array.isArray(options.chunkSizes) && options.chunkSizes.length > 0
+    ? options.chunkSizes.filter((s) => Number(s) > 0).map(Number)
+    : [100];
+  const start = Math.max(0, rangeStart);
+  const end = Math.min(totalRows, rangeEnd);
+  const rangeLength = end - start;
+  for (const s of chunkSizes) {
+    if (s > rangeLength) {
+      throw new Error(`Chunk size ${s} exceeds range length ${rangeLength}`);
+    }
+  }
+  const db = getDb(process.env.DB_PATH);
+  db.prepare(
+    'UPDATE sessions SET chunk_range_start = ?, chunk_range_end = ?, chunk_sizes = ? WHERE id = ?'
+  ).run(start, end, JSON.stringify(chunkSizes), sessionId);
+  db.prepare('DELETE FROM chunks WHERE session_id = ?').run(sessionId);
+  createChunks(sessionId, totalRows, { rangeStart: start, rangeEnd: end, chunkSizes });
 }
 
 export function getSessionConfig(sessionId) {
@@ -122,7 +156,7 @@ function prepopulateRowEditsFromReferenceColumn(sessionId) {
 export function listSessions() {
   const db = getDb(process.env.DB_PATH);
   const rows = db.prepare(
-    'SELECT id, name, file_path, sheet_name, total_rows, chunk_size, created_at, status FROM sessions ORDER BY created_at DESC'
+    'SELECT id, name, file_path, sheet_name, total_rows, chunk_range_start, chunk_range_end, chunk_sizes, created_at, status FROM sessions ORDER BY created_at DESC'
   ).all();
   return rows.map((r) => ({ ...r, hasConfig: !!getSessionConfig(r.id) }));
 }

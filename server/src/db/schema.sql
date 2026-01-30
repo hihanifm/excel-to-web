@@ -6,7 +6,9 @@ CREATE TABLE IF NOT EXISTS sessions (
   sheet_name TEXT,
   headers TEXT NOT NULL DEFAULT '[]',
   total_rows INTEGER,
-  chunk_size INTEGER NOT NULL DEFAULT 100,
+  chunk_range_start INTEGER NOT NULL DEFAULT 0,
+  chunk_range_end INTEGER,
+  chunk_sizes TEXT NOT NULL DEFAULT '[100]',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   status TEXT NOT NULL DEFAULT 'draft'
 );
@@ -29,7 +31,7 @@ CREATE TABLE IF NOT EXISTS session_rows (
   PRIMARY KEY (session_id, row_index)
 );
 
--- Chunks: derived from session + chunk_size
+-- Chunks: derived from session chunk range + chunk_sizes
 CREATE TABLE IF NOT EXISTS chunks (
   session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   chunk_index INTEGER NOT NULL,

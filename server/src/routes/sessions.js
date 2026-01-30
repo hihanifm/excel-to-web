@@ -49,15 +49,14 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// PUT /api/sessions/:id/sheet — body: { sheetName, chunkSize?, compare? }
+// PUT /api/sessions/:id/sheet — body: { sheetName, compare? }. Parse and store rows; do not create chunks.
 router.put('/:id/sheet', async (req, res) => {
   try {
     const sessionId = Number(req.params.id);
     const session = sessionService.getSession(sessionId);
     if (!session) return res.status(404).json({ error: 'Session not found' });
-    const { sheetName, chunkSize: reqChunkSize, compare } = req.body;
+    const { sheetName, compare } = req.body;
     if (!sheetName) return res.status(400).json({ error: 'sheetName required' });
-    const chunkSize = Math.min(Math.max(1, parseInt(reqChunkSize || session.chunk_size || 100, 10)), 1000);
     const compareMode = !!compare;
 
     sessionService.deleteSessionRowsAndChunks(sessionId);
@@ -80,15 +79,66 @@ router.put('/:id/sheet', async (req, res) => {
       totalRows += batch.length;
     }
 
-    sessionService.updateSessionSheet(sessionId, sheetName, headers, totalRows, chunkSize, { compareMode });
-    if (!compareMode) {
-      sessionService.createChunks(sessionId, totalRows, chunkSize);
-    }
+    sessionService.updateSessionSheet(sessionId, sheetName, headers, totalRows, { compareMode });
 
-    res.json({ headers, totalRows, chunkSize });
+    res.json({ headers, totalRows });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'Sheet parse failed' });
+  }
+});
+
+// PUT /api/sessions/:id/chunking — body: { chunkRange: { start, end }, equalSize?, chunkSizes? }. 1-based inclusive range.
+router.put('/:id/chunking', (req, res) => {
+  try {
+    const sessionId = Number(req.params.id);
+    const session = sessionService.getSession(sessionId);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const totalRows = session.total_rows ?? 0;
+    const { chunkRange, equalSize, chunkSizes: reqChunkSizes } = req.body;
+    if (!chunkRange || typeof chunkRange.start !== 'number' || typeof chunkRange.end !== 'number') {
+      return res.status(400).json({ error: 'chunkRange.start and chunkRange.end (1-based inclusive) required' });
+    }
+    const start1 = Math.max(1, Number(chunkRange.start));
+    const end1 = Math.min(totalRows, Number(chunkRange.end));
+    if (start1 > end1) {
+      return res.status(400).json({ error: 'chunkRange start must be <= end' });
+    }
+    const rangeStart = start1 - 1;
+    const rangeEnd = end1;
+    const rangeLength = rangeEnd - rangeStart;
+
+    let chunkSizes;
+    if (equalSize != null && equalSize !== '') {
+      const size = Math.min(Math.max(1, parseInt(equalSize, 10)), 10000);
+      if (size > rangeLength) {
+        return res.status(400).json({ error: `Chunk size ${size} exceeds range length ${rangeLength}` });
+      }
+      chunkSizes = [size];
+    } else if (Array.isArray(reqChunkSizes) && reqChunkSizes.length > 0) {
+      chunkSizes = reqChunkSizes.map((s) => Math.min(Math.max(1, parseInt(s, 10)), 10000)).filter((s) => s > 0);
+      if (chunkSizes.length === 0) {
+        return res.status(400).json({ error: 'At least one valid chunk size required' });
+      }
+      for (const s of chunkSizes) {
+        if (s > rangeLength) {
+          return res.status(400).json({ error: `Chunk size ${s} exceeds range length ${rangeLength}` });
+        }
+      }
+    } else {
+      return res.status(400).json({ error: 'equalSize or chunkSizes required' });
+    }
+
+    sessionService.setChunking(sessionId, totalRows, { rangeStart, rangeEnd, chunkSizes });
+    const chunks = sessionService.getChunks(sessionId);
+    res.json({
+      chunkRange: { start: start1, end: end1 },
+      chunkSizes,
+      chunkCount: chunks.length,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'Chunking failed' });
   }
 });
 

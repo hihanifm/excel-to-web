@@ -1,6 +1,6 @@
-# Excel Chunked Web App
+# Excel Data Labeling
 
-Web app for chunked editing of large Excel files: upload, choose sheet, configure columns and target options, then let employees claim chunks and edit one row at a time (or N rows). Export merges all edits with a pre-export integrity check.
+Web app for chunked editing of large Excel files: upload, choose sheet, configure columns and target options, then let employees claim chunks and edit one row at a time (or N rows). Export merges all edits with a pre-export integrity check. **Version** is maintained in the root `package.json` only; scripts and the UI read from there.
 
 ## Stack
 
