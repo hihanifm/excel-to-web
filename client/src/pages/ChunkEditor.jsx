@@ -79,6 +79,15 @@ export default function ChunkEditor() {
   const [userSelectedRowOffsets, setUserSelectedRowOffsets] = useState(() => new Set());
   const [goToRowInput, setGoToRowInput] = useState('');
 
+  // Reset chunk-specific state when switching to a different chunk so we always re-fetch and re-evaluate.
+  // Do not overwrite name from sessionStorage here — keep current name so "Your name" stays correct when opening another chunk (avoids showing a stale/cached value like "h1").
+  useEffect(() => {
+    setClaimed(false);
+    setResumeChecked(false);
+    setOffset(0);
+    setData({ rows: [], totalInChunk: 0, targetOptions: [] });
+  }, [id, chunkIndex]);
+
   const loadRows = (off, lim) => {
     setLoading(true);
     setError('');
@@ -101,7 +110,7 @@ export default function ChunkEditor() {
     const norm = (s) => (s || '').trim().toLowerCase();
 
     const ac = new AbortController();
-    fetch(`/api/sessions/${id}/chunks/${chunkIndex}`, { signal: ac.signal })
+    fetch(`/api/sessions/${id}/chunks/${chunkIndex}`, { signal: ac.signal, cache: 'no-store' })
       .then((r) => {
         if (!r.ok) return null;
         return r.json();
@@ -126,8 +135,6 @@ export default function ChunkEditor() {
             ? Math.min(Math.max(0, parseInt(storedOffset, 10)), Math.max(0, totalInChunk - 1))
             : Math.min(chunk.rowsEditedInChunk ?? 0, Math.max(0, totalInChunk - 1));
           setOffset(resumeOffset);
-        } else if (assignee) {
-          setName(assignee);
         }
         setResumeChecked(true);
       })
