@@ -205,6 +205,22 @@ export function getChunks(sessionId) {
   }));
 }
 
+export function getChunk(sessionId, chunkIndex) {
+  const db = getDb(process.env.DB_PATH);
+  const chunk = db.prepare(
+    'SELECT chunk_index, start_row, end_row, assignee_name, status, completed_at FROM chunks WHERE session_id = ? AND chunk_index = ?'
+  ).get(sessionId, chunkIndex);
+  if (!chunk) return null;
+  const rowsEdited = db.prepare(
+    `SELECT COUNT(*) as c FROM row_edits WHERE session_id = ? AND row_index >= ? AND row_index < ? AND user_edited = 1`
+  ).get(sessionId, chunk.start_row, chunk.end_row);
+  return {
+    ...chunk,
+    rowsInChunk: chunk.end_row - chunk.start_row,
+    rowsEditedInChunk: rowsEdited?.c ?? 0,
+  };
+}
+
 export function claimChunk(sessionId, chunkIndex, name) {
   const db = getDb(process.env.DB_PATH);
   const chunk = db.prepare(

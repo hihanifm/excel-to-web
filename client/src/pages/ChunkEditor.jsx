@@ -76,6 +76,7 @@ export default function ChunkEditor() {
   const [autoAdvance, setAutoAdvance] = useState(getStoredAutoAdvance);
   const [soundOnSelect, setSoundOnSelect] = useState(getStoredSoundOnSelect);
   const [userSelectedRowOffsets, setUserSelectedRowOffsets] = useState(() => new Set());
+  const [goToRowInput, setGoToRowInput] = useState('');
 
   const loadRows = (off, lim) => {
     setLoading(true);
@@ -98,10 +99,13 @@ export default function ChunkEditor() {
     const effectiveName = (storedName || resumeWithName || '').trim();
     const norm = (s) => (s || '').trim().toLowerCase();
 
-    fetch(`/api/sessions/${id}/chunks`)
-      .then((r) => r.ok ? r.json() : [])
-      .then((chunks) => {
-        const chunk = chunks.find((c) => String(c.chunk_index) === String(chunkIndex));
+    const ac = new AbortController();
+    fetch(`/api/sessions/${id}/chunks/${chunkIndex}`, { signal: ac.signal })
+      .then((r) => {
+        if (!r.ok) return null;
+        return r.json();
+      })
+      .then((chunk) => {
         if (!chunk) {
           setResumeChecked(true);
           return;
@@ -126,7 +130,11 @@ export default function ChunkEditor() {
         }
         setResumeChecked(true);
       })
-      .catch(() => setResumeChecked(true));
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        setResumeChecked(true);
+      });
+    return () => ac.abort();
   }, [id, chunkIndex, claimed, resumeChecked, location.state?.resumeWithName]);
 
   useEffect(() => {
@@ -262,15 +270,33 @@ export default function ChunkEditor() {
     if (typeof window !== 'undefined') window.scrollTo(0, 0);
   };
 
+  const chunkStart1 = data.chunkStartRow != null ? data.chunkStartRow + 1 : 1;
+  const chunkEnd1 = data.chunkEndRow != null ? data.chunkEndRow : data.totalInChunk;
+  const currentStartRow = data.chunkStartRow != null ? data.chunkStartRow + offset + 1 : offset + 1;
+  const rangeStr = data.chunkStartRow != null && data.chunkEndRow != null ? `${chunkStart1}–${chunkEnd1}` : String(data.totalInChunk ?? '');
+
+  const applyGoToRow = (val) => {
+    const parsed = parseInt(String(val).trim(), 10);
+    if (Number.isNaN(parsed) || data.totalInChunk === 0) return;
+    const minRow = chunkStart1;
+    const maxRow = chunkEnd1 - limit + 1;
+    const targetRow = Math.min(Math.max(parsed, minRow), maxRow);
+    const newOffset = Math.max(0, targetRow - chunkStart1);
+    setOffset(newOffset);
+    loadRows(newOffset, limit);
+    setGoToRowInput('');
+    if (typeof window !== 'undefined') window.scrollTo(0, 0);
+  };
+
   if (!claimed) {
     const storedName = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(CLAIMANT_STORAGE_KEY(id)) : null;
     const mayResume = (storedName?.trim() || location.state?.resumeWithName?.trim());
-    if (!resumeChecked && mayResume) {
+    if (!resumeChecked) {
       return (
         <div className="card">
           <p style={{ margin: '0 0 0.5rem 0' }}><button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`)}>← Back to session</button></p>
           <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
-          <p>Resuming...</p>
+          <p>{mayResume ? 'Resuming...' : 'Loading...'}</p>
         </div>
       );
     }
@@ -340,13 +366,27 @@ export default function ChunkEditor() {
         <p>Loading...</p>
       ) : (
         <>
-          <p style={{ textAlign: 'right', margin: 0 }}>
-            {(() => {
-              const start = data.chunkStartRow != null ? (data.chunkStartRow + offset + 1) : (offset + 1);
-              const end = data.chunkEndRow != null ? Math.min(data.chunkStartRow + offset + limit, data.chunkEndRow) : Math.min(offset + limit, data.totalInChunk);
-              const range = data.chunkStartRow != null && data.chunkEndRow != null ? `${data.chunkStartRow + 1}–${data.chunkEndRow}` : data.totalInChunk;
-              return start === end ? `Row ${start} of ${range}` : `Rows ${start}–${end} of ${range}`;
-            })()}
+          <p style={{ textAlign: 'right', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span>Row</span>
+            <input
+              type="number"
+              min={chunkStart1}
+              max={chunkEnd1}
+              value={goToRowInput !== '' ? goToRowInput : currentStartRow}
+              onFocus={() => setGoToRowInput(String(currentStartRow))}
+              onChange={(e) => setGoToRowInput(e.target.value)}
+              onBlur={(e) => applyGoToRow(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  applyGoToRow(e.target.value);
+                  e.target.blur();
+                }
+              }}
+              style={{ width: '4rem', textAlign: 'right' }}
+              aria-label="Go to row number"
+            />
+            <span>of {rangeStr}</span>
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {data.rows?.map((row) => (

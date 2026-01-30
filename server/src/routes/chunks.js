@@ -11,6 +11,16 @@ router.get('/', (req, res) => {
   res.json(chunks);
 });
 
+// GET /api/sessions/:id/chunks/:chunkIndex — single chunk (for resume check)
+router.get('/:chunkIndex', (req, res) => {
+  const sessionId = Number(req.params.id);
+  const chunkIndex = Number(req.params.chunkIndex);
+  if (!sessionService.getSession(sessionId)) return res.status(404).json({ error: 'Session not found' });
+  const chunk = sessionService.getChunk(sessionId, chunkIndex);
+  if (!chunk) return res.status(404).json({ error: 'Chunk not found' });
+  res.json(chunk);
+});
+
 // PUT /api/sessions/:id/chunks/:chunkIndex/claim
 router.put('/:chunkIndex/claim', (req, res) => {
   const sessionId = Number(req.params.id);
