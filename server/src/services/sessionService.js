@@ -1,12 +1,36 @@
+import crypto from 'crypto';
 import { getDb } from '../db/index.js';
 
-export function createSession(filePath, name = null, originalFilename = null, creatorName = null) {
+const DEFAULT_DELETE_PIN = 'Samsung12#';
+
+function hashPin(pin) {
+  return crypto.createHash('sha256').update(pin).digest('hex');
+}
+
+export function createSession(filePath, name = null, originalFilename = null, creatorName = null, deletePin = null) {
   const db = getDb(process.env.DB_PATH);
+  const pinToUse = deletePin != null && String(deletePin).trim() !== '' ? String(deletePin).trim() : DEFAULT_DELETE_PIN;
+  const pinHash = hashPin(pinToUse);
   const stmt = db.prepare(
-    'INSERT INTO sessions (file_path, name, original_filename, creator_name, status) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO sessions (file_path, name, original_filename, creator_name, status, delete_pin) VALUES (?, ?, ?, ?, ?, ?)'
   );
-  const result = stmt.run(filePath, name, originalFilename, creatorName, 'draft');
+  const result = stmt.run(filePath, name, originalFilename, creatorName, 'draft', pinHash);
   return result.lastInsertRowid;
+}
+
+export function deleteSession(sessionId, pin) {
+  const db = getDb(process.env.DB_PATH);
+  const session = db.prepare('SELECT id, file_path, delete_pin FROM sessions WHERE id = ?').get(sessionId);
+  if (!session) return { ok: false, error: 'Session not found' };
+  const pinTrimmed = (pin ?? '').trim();
+  if (pinTrimmed === '') return { ok: false, error: 'PIN is required to delete' };
+  // Sessions with no stored PIN (null/undefined/empty) must match default PIN; others must match stored hash
+  const hasStoredPin = typeof session.delete_pin === 'string' && session.delete_pin.length > 0;
+  const expectedHash = hasStoredPin ? session.delete_pin : hashPin(DEFAULT_DELETE_PIN);
+  const providedHash = hashPin(pinTrimmed);
+  if (providedHash !== expectedHash) return { ok: false, error: 'Invalid PIN' };
+  db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+  return { ok: true, filePath: session.file_path };
 }
 
 export function getSession(id) {

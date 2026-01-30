@@ -38,6 +38,7 @@ export default function SessionCreate() {
   const [preloadedFiles, setPreloadedFiles] = useState([]);
   const [selectedPreloadedPath, setSelectedPreloadedPath] = useState('');
   const [refreshingPreloaded, setRefreshingPreloaded] = useState(false);
+  const [deletePin, setDeletePin] = useState('');
 
   const fetchPreloadedFiles = () => {
     setRefreshingPreloaded(true);
@@ -70,6 +71,7 @@ export default function SessionCreate() {
       const fd = new FormData(form);
       if (sessionName.trim()) fd.set('name', sessionName.trim());
       if (creatorName.trim()) fd.set('creator_name', creatorName.trim());
+      if (deletePin.trim()) fd.set('delete_pin', deletePin.trim());
       if (!fd.get('file')) {
         setError('Select a file');
         return;
@@ -93,6 +95,7 @@ export default function SessionCreate() {
           preloadedPath: selectedPreloadedPath,
           name: sessionName.trim() || undefined,
           creator_name: creatorName.trim() || undefined,
+          delete_pin: deletePin.trim() || undefined,
         }),
       })
         .then(parseJsonResponse)
@@ -325,6 +328,17 @@ export default function SessionCreate() {
               onChange={(e) => setCreatorName(e.target.value)}
               placeholder="Your name"
               style={{ minWidth: '12rem' }}
+            />
+          </p>
+          <p>
+            <label>Delete PIN (optional): </label>
+            <input
+              type="password"
+              value={deletePin}
+              onChange={(e) => setDeletePin(e.target.value)}
+              placeholder="Required to delete this session later"
+              style={{ minWidth: '12rem' }}
+              autoComplete="off"
             />
           </p>
           <p>Choose an Excel file to use.</p>

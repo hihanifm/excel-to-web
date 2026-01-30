@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   chunk_range_end INTEGER,
   chunk_sizes TEXT NOT NULL DEFAULT '[100]',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  status TEXT NOT NULL DEFAULT 'draft'
+  status TEXT NOT NULL DEFAULT 'draft',
+  delete_pin TEXT
 );
 
 -- Session config: left columns, target column, target options, reference column for pre-fill (after step 3 & 4)

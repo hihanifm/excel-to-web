@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { homedir } from 'os';
-import { readdirSync, existsSync } from 'fs';
+import { readdirSync, existsSync, unlinkSync } from 'fs';
 import { getSheetNames, parseSheetInBatches } from '../services/excelService.js';
 import * as sessionService from '../services/sessionService.js';
 import { BATCH_SIZE } from '../services/excelService.js';
@@ -53,7 +53,7 @@ router.get('/preloaded-files', (req, res) => {
 // POST /api/sessions/from-preloaded — create session from a preloaded file
 router.post('/from-preloaded', async (req, res) => {
   try {
-    const { preloadedPath, name, creator_name } = req.body;
+    const { preloadedPath, name, creator_name, delete_pin } = req.body;
     if (!preloadedPath || typeof preloadedPath !== 'string') {
       return res.status(400).json({ error: 'preloadedPath required' });
     }
@@ -71,7 +71,8 @@ router.post('/from-preloaded', async (req, res) => {
       resolved,
       name || null,
       path.basename(resolved),
-      creator_name || null
+      creator_name || null,
+      delete_pin ?? null
     );
     res.json({ sessionId, sheetNames });
   } catch (err) {
@@ -94,7 +95,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const filePath = req.file.path;
     const sheetNames = await getSheetNames(filePath);
-    const sessionId = sessionService.createSession(filePath, req.body.name || null, req.file.originalname || null, req.body.creator_name || null);
+    const deletePin = req.body.delete_pin != null ? String(req.body.delete_pin) : null;
+    const sessionId = sessionService.createSession(filePath, req.body.name || null, req.file.originalname || null, req.body.creator_name || null, deletePin);
     res.json({ sessionId, sheetNames });
   } catch (err) {
     console.error(err);
@@ -210,6 +212,32 @@ router.get('/:id/compare', (req, res) => {
   res.json(stats);
 });
 
+// DELETE /api/sessions/:id — body: { pin }. Requires PIN if session has delete_pin set.
+router.delete('/:id', (req, res) => {
+  try {
+    const sessionId = Number(req.params.id);
+    const pin = req.body?.pin != null ? String(req.body.pin) : '';
+    const result = sessionService.deleteSession(sessionId, pin);
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+    if (result.filePath) {
+      try {
+        const relative = path.relative(uploadsDir, result.filePath);
+        if (!relative.startsWith('..') && !path.isAbsolute(relative)) {
+          unlinkSync(result.filePath);
+        }
+      } catch (_) {
+        // ignore file-not-found or other unlink errors
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'Delete failed' });
+  }
+});
+
 // GET /api/sessions/:id
 router.get('/:id', (req, res) => {
   const sessionId = Number(req.params.id);
@@ -217,6 +245,7 @@ router.get('/:id', (req, res) => {
   if (!session) return res.status(404).json({ error: 'Session not found' });
   const config = sessionService.getSessionConfig(sessionId);
   const result = { ...session };
+  delete result.delete_pin; // do not expose PIN hash to client
   if (config) result.config = config;
   if (req.query.stats === '1') result.stats = sessionService.getSessionStats(sessionId);
   res.json(result);

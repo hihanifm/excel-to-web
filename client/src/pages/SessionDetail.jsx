@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 
 export default function SessionDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [session, setSession] = useState(null);
   const [stats, setStats] = useState(null);
   const [chunks, setChunks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteStep, setDeleteStep] = useState('confirm'); // 'confirm' | 'pin'
+  const [deletePin, setDeletePin] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -31,6 +37,27 @@ export default function SessionDetail() {
     const t = setInterval(load, 10000);
     return () => clearInterval(t);
   }, [id]);
+
+  const handleDelete = () => {
+    setDeleting(true);
+    setDeleteError('');
+    fetch(`/api/sessions/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: deletePin }),
+    })
+      .then((r) => {
+        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Delete failed'); });
+        return r.json();
+      })
+      .then(() => {
+        setDeleteConfirmOpen(false);
+        setDeletePin('');
+        navigate('/');
+      })
+      .catch((err) => setDeleteError(err.message))
+      .finally(() => setDeleting(false));
+  };
 
   const handleExport = () => {
     setExporting(true);
@@ -107,7 +134,76 @@ export default function SessionDetail() {
         <button className="primary" onClick={handleExport} disabled={exporting}>
           {exporting ? 'Exporting...' : 'Export Excel'}
         </button>
+        {' '}
+        <button
+          type="button"
+          onClick={() => { setDeleteConfirmOpen(true); setDeleteStep('confirm'); setDeletePin(''); setDeleteError(''); }}
+          style={{ background: '#c62828', color: 'white', border: 'none' }}
+        >
+          Delete session
+        </button>
       </p>
+      {deleteConfirmOpen && (
+        <div className="card" style={{ background: '#fff8e1', marginTop: '1rem' }}>
+          {deleteStep === 'confirm' ? (
+            <>
+              <h3>Delete session?</h3>
+              <p>Are you sure you want to delete this session? This cannot be undone.</p>
+              <p>
+                <button
+                  type="button"
+                  onClick={() => { setDeleteStep('pin'); setDeleteError(''); }}
+                  style={{ background: '#c62828', color: 'white', border: 'none', marginRight: '0.5rem' }}
+                >
+                  Yes, continue
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setDeleteConfirmOpen(false); setDeleteStep('confirm'); }}
+                >
+                  Cancel
+                </button>
+              </p>
+            </>
+          ) : (
+            <>
+              <h3>Delete session</h3>
+              <p>PIN is required to delete. Enter the PIN you set when creating this session, or the default PIN if you did not set one.</p>
+              {deleteError && <p style={{ color: 'red' }}>{deleteError}</p>}
+              <p>
+                <label>
+                  PIN:{' '}
+                  <input
+                    type="password"
+                    value={deletePin}
+                    onChange={(e) => setDeletePin(e.target.value)}
+                    placeholder="Delete PIN (required)"
+                    style={{ minWidth: '10rem' }}
+                    autoComplete="off"
+                  />
+                </label>
+              </p>
+              <p>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting || !deletePin.trim()}
+                  style={{ background: '#c62828', color: 'white', border: 'none', marginRight: '0.5rem' }}
+                >
+                  {deleting ? 'Deleting...' : 'Delete'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setDeleteConfirmOpen(false); setDeletePin(''); setDeleteError(''); }}
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+              </p>
+            </>
+          )}
+        </div>
+      )}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ borderBottom: '2px solid #ccc' }}>

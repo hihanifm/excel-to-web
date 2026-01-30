@@ -101,12 +101,13 @@ export default function ChunkEditor() {
       .finally(() => setLoading(false));
   };
 
-  // On mount: if chunk is already claimed by the same user (stored name or resume link), skip claim form and resume from last viewed row
+  // On mount: if chunk is already claimed by the same user (stored name or resume link), skip claim form and resume from last viewed row.
+  // Prefer resumeWithName from the Resume link over sessionStorage, since storage is per-session and may be from a different chunk's assignee.
   useEffect(() => {
     if (resumeChecked || claimed) return;
     const storedName = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(CLAIMANT_STORAGE_KEY(id)) : null;
     const resumeWithName = location.state?.resumeWithName;
-    const effectiveName = (storedName || resumeWithName || '').trim();
+    const effectiveName = (resumeWithName || storedName || '').trim();
     const norm = (s) => (s || '').trim().toLowerCase();
 
     const ac = new AbortController();
@@ -124,8 +125,8 @@ export default function ChunkEditor() {
         if (effectiveName && norm(chunk.assignee_name) === norm(effectiveName)) {
           setName(assignee || effectiveName);
           setClaimed(true);
-          if (resumeWithName && typeof sessionStorage !== 'undefined' && !storedName) {
-            sessionStorage.setItem(CLAIMANT_STORAGE_KEY(id), (assignee || resumeWithName).trim());
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem(CLAIMANT_STORAGE_KEY(id), (assignee || effectiveName).trim());
           }
           const totalInChunk = chunk.rowsInChunk ?? chunk.end_row - chunk.start_row;
           const storedOffset = typeof sessionStorage !== 'undefined'
@@ -253,7 +254,7 @@ export default function ChunkEditor() {
     })
       .then((r) => {
         if (!r.ok) throw new Error(r.status === 403 ? 'Not your chunk' : 'Failed');
-        navigate(`/sessions/${id}`);
+        navigate(`/sessions/${id}`, { replace: true });
       })
       .catch((err) => setError(err.message));
   };
@@ -305,7 +306,7 @@ export default function ChunkEditor() {
     if (!resumeChecked) {
       return (
         <div className="card">
-          <p style={{ margin: '0 0 0.5rem 0' }}><button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`)}>← Back to session</button></p>
+          <p style={{ margin: '0 0 0.5rem 0' }}><button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })}>← Back to session</button></p>
           <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
           <p>{mayResume ? 'Resuming...' : 'Loading...'}</p>
         </div>
@@ -313,7 +314,7 @@ export default function ChunkEditor() {
     }
     return (
       <div className="card">
-        <p style={{ margin: '0 0 0.5rem 0' }}><button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`)}>← Back to session</button></p>
+        <p style={{ margin: '0 0 0.5rem 0' }}><button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })}>← Back to session</button></p>
         <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
         {error && <p style={{ color: 'red' }}>{error}</p>}
         <form onSubmit={handleClaim}>
@@ -332,7 +333,7 @@ export default function ChunkEditor() {
   return (
     <div className="card">
       <p style={{ margin: '0 0 0.5rem 0' }}>
-        <button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`)}>← Back to session</button>
+        <button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })}>← Back to session</button>
       </p>
       <p style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap', margin: 0 }}>
         <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
