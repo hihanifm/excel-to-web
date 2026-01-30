@@ -1,3 +1,4 @@
+import { createContext, useState, useContext } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import SessionList from './pages/SessionList';
 import SessionCreate from './pages/SessionCreate';
@@ -6,9 +7,17 @@ import SessionDetail from './pages/SessionDetail';
 import ChunkEditor from './pages/ChunkEditor';
 import Footer from './components/Footer';
 
+export const ApiStatusContext = createContext(null);
+
+export function useApiStatus() {
+  return useContext(ApiStatusContext);
+}
+
 export default function App() {
+  const [apiStatus, setApiStatus] = useState(null);
+
   return (
-    <>
+    <ApiStatusContext.Provider value={{ apiStatus, setApiStatus }}>
       <main className="app-main">
         <div className="container">
           <nav style={{ marginBottom: '1rem' }}>
@@ -28,6 +37,6 @@ export default function App() {
         </div>
       </main>
       <Footer />
-    </>
+    </ApiStatusContext.Provider>
   );
 }

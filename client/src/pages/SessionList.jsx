@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useApiStatus } from '../App';
 
 export default function SessionList() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { setApiStatus } = useApiStatus();
 
   useEffect(() => {
     fetch('/api/sessions')
@@ -12,6 +14,27 @@ export default function SessionList() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  // Poll API status only while SessionList is mounted
+  useEffect(() => {
+    let cancelled = false;
+    const check = () => {
+      fetch('/api/sessions', { method: 'GET' })
+        .then((r) => {
+          if (cancelled) return;
+          setApiStatus(r.ok ? 'ok' : 'error');
+        })
+        .catch(() => {
+          if (!cancelled) setApiStatus('offline');
+        });
+    };
+    check();
+    const t = setInterval(check, 180000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [setApiStatus]);
 
   if (loading) return <div className="card">Loading sessions...</div>;
   if (sessions.length === 0) {

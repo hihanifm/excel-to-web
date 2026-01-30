@@ -5,6 +5,7 @@ const CLAIMANT_STORAGE_KEY = (sessionId) => `excel-app_claimant_${sessionId}`;
 const LAST_VIEWED_OFFSET_KEY = (sessionId, chunkIndex) => `excel-app_lastOffset_${sessionId}_chunk_${chunkIndex}`;
 const ROWS_PER_VIEW_KEY = 'excel-app_rowsPerView';
 const AUTO_ADVANCE_KEY = 'excel-app_autoAdvance';
+const SOUND_ON_SELECT_KEY = 'excel-app_soundOnSelect';
 
 const getStoredRowsPerView = () => {
   if (typeof sessionStorage === 'undefined') return 1;
@@ -17,6 +18,30 @@ const getStoredAutoAdvance = () => {
   const v = sessionStorage.getItem(AUTO_ADVANCE_KEY);
   return v !== 'false';
 };
+const getStoredSoundOnSelect = () => {
+  if (typeof sessionStorage === 'undefined') return true;
+  const v = sessionStorage.getItem(SOUND_ON_SELECT_KEY);
+  return v !== 'false';
+};
+
+/** Play a short tone when user selects an option (Web Audio API, no assets). */
+function playSelectionSound() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 523;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.12);
+  } catch (_) {}
+}
 
 const TOKEN_PATTERN = /([A-Za-z][A-Za-z0-9_]*\s*:)/g;
 
@@ -49,6 +74,8 @@ export default function ChunkEditor() {
   const [error, setError] = useState('');
   const [resumeChecked, setResumeChecked] = useState(false);
   const [autoAdvance, setAutoAdvance] = useState(getStoredAutoAdvance);
+  const [soundOnSelect, setSoundOnSelect] = useState(getStoredSoundOnSelect);
+  const [userSelectedRowOffsets, setUserSelectedRowOffsets] = useState(() => new Set());
 
   const loadRows = (off, lim) => {
     setLoading(true);
@@ -298,6 +325,15 @@ export default function ChunkEditor() {
         }} />
           {' '}Auto-advance after saving {limit === 1 ? '(next row)' : ''}
         </label>
+        {' '}
+        <label style={{ marginLeft: '1rem' }}>
+          <input type="checkbox" checked={soundOnSelect} onChange={(e) => {
+          const checked = e.target.checked;
+          setSoundOnSelect(checked);
+          if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(SOUND_ON_SELECT_KEY, checked ? 'true' : 'false');
+        }} />
+          {' '}Play sound on selection
+        </label>
       </p>
       {error && <p style={{ color: 'red' }}>{error}</p>}
       {loading && data.rows.length === 0 ? (
@@ -337,14 +373,31 @@ export default function ChunkEditor() {
                   <div>
                     <strong>Target</strong>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      {(data.targetOptions || []).map((opt) => (
+                      {(data.targetOptions || []).map((opt) => {
+                          const isSelected = row.targetCurrentValue === opt;
+                          const isUserSelected = userSelectedRowOffsets.has(row.rowOffsetInChunk);
+                          const btnClass = !isSelected ? '' : isUserSelected ? 'btn-selected-warm' : 'primary';
+                          return (
                         <button
                           key={opt}
                           type="button"
-                          className={row.targetCurrentValue === opt ? 'primary' : ''}
+                          className={btnClass}
                           onClick={() => {
+                            if (soundOnSelect) playSelectionSound();
+                            // Always show orange when user clicks (even if same pre-selected option)
+                            setUserSelectedRowOffsets((prev) => new Set(prev).add(row.rowOffsetInChunk));
                             if (opt !== row.targetCurrentValue) {
-                              handleSetValue(row.rowOffsetInChunk, opt);
+                              // Optimistic: update selection, pause 500ms, then save and advance
+                              setData((prev) => ({
+                                ...prev,
+                                rows: prev.rows.map((r) =>
+                                  r.rowOffsetInChunk === row.rowOffsetInChunk
+                                    ? { ...r, targetCurrentValue: opt }
+                                    : r
+                                ),
+                              }));
+                              const rowOffset = row.rowOffsetInChunk;
+                              setTimeout(() => handleSetValue(rowOffset, opt), 500);
                             } else if (autoAdvance && data.rows.length === 1 && offset + 1 < data.totalInChunk) {
                               fetch(`/api/sessions/${id}/chunks/${chunkIndex}/rows-viewed`, {
                                 method: 'PUT',
@@ -358,7 +411,8 @@ export default function ChunkEditor() {
                         >
                           {opt}
                         </button>
-                      ))}
+                          );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -366,8 +420,8 @@ export default function ChunkEditor() {
             ))}
           </div>
           <p style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-            <button type="button" className="btn-nav" style={{ flex: 1 }} onClick={goPrev} disabled={offset === 0}>Previous</button>
-            <button type="button" className="btn-nav" style={{ flex: 1 }} onClick={goNext} disabled={offset + limit >= data.totalInChunk}>Next</button>
+            <button type="button" className="btn-nav" style={{ flex: 1 }} onClick={goPrev} disabled={offset === 0}>Prev (left arrow)</button>
+            <button type="button" className="btn-nav" style={{ flex: 1 }} onClick={goNext} disabled={offset + limit >= data.totalInChunk}>Next (right arrow)</button>
           </p>
           <p style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
             <button type="button" className="primary" onClick={handleComplete}>

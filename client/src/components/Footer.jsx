@@ -1,33 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useApiStatus } from '../App';
 
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.1';
 const APP_NAME = 'Excel Chunked Web App';
 
 export default function Footer() {
-  const [apiStatus, setApiStatus] = useState('checking');
+  const { apiStatus } = useApiStatus();
   const mode = import.meta.env.DEV ? 'dev' : 'prod';
 
-  useEffect(() => {
-    let cancelled = false;
-    const check = () => {
-      fetch('/api/sessions', { method: 'GET' })
-        .then((r) => {
-          if (cancelled) return;
-          setApiStatus(r.ok ? 'ok' : 'error');
-        })
-        .catch(() => {
-          if (!cancelled) setApiStatus('offline');
-        });
-    };
-    check();
-    const t = setInterval(check, 30000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, []);
-
-  const statusLabel = apiStatus === 'ok' ? 'API OK' : apiStatus === 'offline' ? 'API offline' : apiStatus === 'error' ? 'API error' : '…';
+  const statusLabel = apiStatus === 'ok' ? 'API OK' : apiStatus === 'offline' ? 'API offline' : apiStatus === 'error' ? 'API error' : '—';
   const statusClass = apiStatus === 'ok' ? 'footer-status-ok' : apiStatus === 'offline' ? 'footer-status-offline' : '';
 
   return (
