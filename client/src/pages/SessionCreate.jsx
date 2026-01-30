@@ -23,6 +23,7 @@ export default function SessionCreate() {
   const [sessionId, setSessionId] = useState(null);
   const [sheetNames, setSheetNames] = useState([]);
   const [sessionName, setSessionName] = useState('');
+  const [creatorName, setCreatorName] = useState('');
   const [selectedSheet, setSelectedSheet] = useState('');
   const [headers, setHeaders] = useState([]);
   const [totalRows, setTotalRows] = useState(0);
@@ -41,6 +42,7 @@ export default function SessionCreate() {
     const form = e.target;
     const fd = new FormData(form);
     if (sessionName.trim()) fd.set('name', sessionName.trim());
+    if (creatorName.trim()) fd.set('creator_name', creatorName.trim());
     if (!fd.get('file')) {
       setError('Select a file');
       return;
@@ -272,6 +274,16 @@ export default function SessionCreate() {
               value={sessionName}
               onChange={(e) => setSessionName(e.target.value)}
               placeholder="e.g. Q1 review"
+              style={{ minWidth: '12rem' }}
+            />
+          </p>
+          <p>
+            <label>Creator name (optional): </label>
+            <input
+              type="text"
+              value={creatorName}
+              onChange={(e) => setCreatorName(e.target.value)}
+              placeholder="Your name"
               style={{ minWidth: '12rem' }}
             />
           </p>

@@ -1,11 +1,11 @@
 import { getDb } from '../db/index.js';
 
-export function createSession(filePath, name = null, originalFilename = null) {
+export function createSession(filePath, name = null, originalFilename = null, creatorName = null) {
   const db = getDb(process.env.DB_PATH);
   const stmt = db.prepare(
-    'INSERT INTO sessions (file_path, name, original_filename, status) VALUES (?, ?, ?, ?)'
+    'INSERT INTO sessions (file_path, name, original_filename, creator_name, status) VALUES (?, ?, ?, ?, ?)'
   );
-  const result = stmt.run(filePath, name, originalFilename, 'draft');
+  const result = stmt.run(filePath, name, originalFilename, creatorName, 'draft');
   return result.lastInsertRowid;
 }
 
@@ -156,7 +156,7 @@ function prepopulateRowEditsFromReferenceColumn(sessionId) {
 export function listSessions() {
   const db = getDb(process.env.DB_PATH);
   const rows = db.prepare(
-    'SELECT id, name, file_path, sheet_name, total_rows, chunk_range_start, chunk_range_end, chunk_sizes, created_at, status FROM sessions ORDER BY created_at DESC'
+    'SELECT id, name, creator_name, file_path, sheet_name, total_rows, chunk_range_start, chunk_range_end, chunk_sizes, created_at, status FROM sessions ORDER BY created_at DESC'
   ).all();
   return rows.map((r) => ({ ...r, hasConfig: !!getSessionConfig(r.id) }));
 }

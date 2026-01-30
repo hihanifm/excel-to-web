@@ -55,6 +55,7 @@ export default function SessionList() {
             <Link to={`/sessions/${s.id}`}>
               Session {s.id}
               {s.name ? ` – ${s.name}` : ''}
+              {s.creator_name ? ` by ${s.creator_name}` : ''}
               {s.total_rows != null ? ` (${s.total_rows} rows)` : ''}
               {s.hasConfig ? ' ✓ configured' : ' – not configured'}
             </Link>

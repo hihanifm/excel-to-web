@@ -13,6 +13,10 @@ export function getDb(dbPath) {
     db.pragma('journal_mode = WAL');
     const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
     db.exec(schema);
+    const cols = db.prepare('PRAGMA table_info(sessions)').all().map((c) => c.name);
+    if (!cols.includes('creator_name')) {
+      db.exec('ALTER TABLE sessions ADD COLUMN creator_name TEXT');
+    }
   }
   return db;
 }

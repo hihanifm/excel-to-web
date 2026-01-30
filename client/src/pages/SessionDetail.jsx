@@ -69,6 +69,11 @@ export default function SessionDetail() {
               Original file: <strong>{session.original_filename}</strong>
             </p>
           )}
+          {session.creator_name && (
+            <p>
+              Creator: <strong>{session.creator_name}</strong>
+            </p>
+          )}
           <p>
             Total chunks: <strong>{stats.totalChunks}</strong>
             {' | '}
