@@ -41,7 +41,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const filePath = req.file.path;
     const sheetNames = await getSheetNames(filePath);
-    const sessionId = sessionService.createSession(filePath, req.body.name || null);
+    const sessionId = sessionService.createSession(filePath, req.body.name || null, req.file.originalname || null);
     res.json({ sessionId, sheetNames });
   } catch (err) {
     console.error(err);

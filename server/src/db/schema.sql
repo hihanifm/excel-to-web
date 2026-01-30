@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT,
   file_path TEXT NOT NULL,
+  original_filename TEXT,
   sheet_name TEXT,
   headers TEXT NOT NULL DEFAULT '[]',
   total_rows INTEGER,

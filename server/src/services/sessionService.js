@@ -1,11 +1,11 @@
 import { getDb } from '../db/index.js';
 
-export function createSession(filePath, name = null) {
+export function createSession(filePath, name = null, originalFilename = null) {
   const db = getDb(process.env.DB_PATH);
   const stmt = db.prepare(
-    'INSERT INTO sessions (file_path, name, status) VALUES (?, ?, ?)'
+    'INSERT INTO sessions (file_path, name, original_filename, status) VALUES (?, ?, ?, ?)'
   );
-  const result = stmt.run(filePath, name, 'draft');
+  const result = stmt.run(filePath, name, originalFilename, 'draft');
   return result.lastInsertRowid;
 }
 
