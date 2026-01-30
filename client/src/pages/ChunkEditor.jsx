@@ -438,7 +438,7 @@ export default function ChunkEditor() {
                             // Always show orange when user clicks (even if same pre-selected option)
                             setUserSelectedRowOffsets((prev) => new Set(prev).add(row.rowOffsetInChunk));
                             if (opt !== row.targetCurrentValue) {
-                              // Optimistic: update selection, pause 500ms, then save and advance
+                              // Optimistic: update selection, pause 300ms, then save and advance
                               setData((prev) => ({
                                 ...prev,
                                 rows: prev.rows.map((r) =>
@@ -448,7 +448,7 @@ export default function ChunkEditor() {
                                 ),
                               }));
                               const rowOffset = row.rowOffsetInChunk;
-                              setTimeout(() => handleSetValue(rowOffset, opt), 500);
+                              setTimeout(() => handleSetValue(rowOffset, opt), 300);
                             } else if (autoAdvance && data.rows.length === 1 && offset + 1 < data.totalInChunk) {
                               fetch(`/api/sessions/${id}/chunks/${chunkIndex}/rows-viewed`, {
                                 method: 'PUT',
