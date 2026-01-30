@@ -95,6 +95,11 @@ docker compose down   # stop; data kept in volume excel-data
 | PORT | 3000 | Server port |
 | DB_PATH | ./data/excel-app.db | SQLite database path |
 | EXCEL_BATCH_SIZE | 500 | Rows per batch when parsing/inserting |
+| PRELOADED_FILES_DIR | ~/.excel_data_labelling/files | Folder of preloaded Excel files (optional) |
+
+## Preloaded files
+
+You can place `.xlsx` or `.xls` files in the preloaded folder (default `~/.excel_data_labelling/files/`) and choose them when creating a session or comparing columns, without uploading. Override the folder with `PRELOADED_FILES_DIR` if needed.
 
 ## Data
 

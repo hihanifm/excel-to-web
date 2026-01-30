@@ -2,12 +2,18 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { homedir } from 'os';
+import { readdirSync, existsSync } from 'fs';
 import { getSheetNames, parseSheetInBatches } from '../services/excelService.js';
 import * as sessionService from '../services/sessionService.js';
 import { BATCH_SIZE } from '../services/excelService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '../../data/uploads');
+const preloadedDir = path.resolve(
+  process.env.PRELOADED_FILES_DIR || path.join(homedir(), '.excel_data_labelling', 'files')
+);
+const EXCEL_EXT = /\.(xlsx|xls)$/i;
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
@@ -25,6 +31,53 @@ const router = Router();
 router.get('/', (req, res) => {
   const list = sessionService.listSessions();
   res.json(list);
+});
+
+// GET /api/sessions/preloaded-files — list .xlsx/.xls in PRELOADED_FILES_DIR
+router.get('/preloaded-files', (req, res) => {
+  try {
+    if (!existsSync(preloadedDir)) {
+      return res.json({ files: [] });
+    }
+    const entries = readdirSync(preloadedDir, { withFileTypes: true });
+    const files = entries
+      .filter((e) => e.isFile() && EXCEL_EXT.test(e.name))
+      .map((e) => ({ name: e.name, path: e.name }));
+    res.json({ files });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'Failed to list preloaded files' });
+  }
+});
+
+// POST /api/sessions/from-preloaded — create session from a preloaded file
+router.post('/from-preloaded', async (req, res) => {
+  try {
+    const { preloadedPath, name, creator_name } = req.body;
+    if (!preloadedPath || typeof preloadedPath !== 'string') {
+      return res.status(400).json({ error: 'preloadedPath required' });
+    }
+    const resolved = path.resolve(preloadedDir, preloadedPath);
+    const base = path.resolve(preloadedDir);
+    const relative = path.relative(base, resolved);
+    if (relative.startsWith('..') || relative.includes('..')) {
+      return res.status(400).json({ error: 'Invalid preloaded path' });
+    }
+    if (!existsSync(resolved)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    const sheetNames = await getSheetNames(resolved);
+    const sessionId = sessionService.createSession(
+      resolved,
+      name || null,
+      path.basename(resolved),
+      creator_name || null
+    );
+    res.json({ sessionId, sheetNames });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'Failed to create session from preloaded file' });
+  }
 });
 
 // GET /api/sessions/:id/stats

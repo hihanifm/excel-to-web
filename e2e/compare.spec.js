@@ -11,6 +11,7 @@ test.describe('Compare e2e', () => {
     await page.goto('/compare');
 
     await expect(page.getByRole('heading', { name: /^compare$/i })).toBeVisible();
+    await expect(page.getByRole('radio', { name: /choose from preloaded/i })).toBeVisible();
     await page.locator('input[type="file"]').setInputFiles(SAMPLE_PATH);
     await page.getByRole('button', { name: /^upload$/i }).click();
     await page.waitForURL(/\/compare$/);

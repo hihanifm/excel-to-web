@@ -15,6 +15,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await page.goto('/create');
 
     await expect(page.getByRole('heading', { name: /create session/i })).toBeVisible();
+    await expect(page.getByRole('radio', { name: /choose from preloaded/i })).toBeVisible();
     await page.locator('input[type="file"]').setInputFiles(SAMPLE_PATH);
     await page.getByRole('button', { name: /^upload$/i }).click();
     await page.waitForURL(/\/create$/);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const STEPS = ['Upload', 'Choose sheet', 'Chunking', 'Choose columns', 'Configure options'];
@@ -34,31 +34,72 @@ export default function SessionCreate() {
   const [targetOptions, setTargetOptions] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fileSource, setFileSource] = useState('upload');
+  const [preloadedFiles, setPreloadedFiles] = useState([]);
+  const [selectedPreloadedPath, setSelectedPreloadedPath] = useState('');
+  const [refreshingPreloaded, setRefreshingPreloaded] = useState(false);
 
-  // Step 1: Upload
-  const handleUpload = (e) => {
+  const fetchPreloadedFiles = () => {
+    setRefreshingPreloaded(true);
+    fetch('/api/sessions/preloaded-files')
+      .then(parseJsonResponse)
+      .then((data) => setPreloadedFiles(data.files || []))
+      .catch(() => setPreloadedFiles([]))
+      .finally(() => setRefreshingPreloaded(false));
+  };
+
+  useEffect(() => {
+    if (fileSource !== 'preloaded') return;
+    fetchPreloadedFiles();
+  }, [fileSource]);
+
+  const applyStep1Success = (data) => {
+    const names = data.sheetNames || [];
+    setSessionId(data.sessionId);
+    setSheetNames(names);
+    setSelectedSheet(names[0] || '');
+    setStep(2);
+  };
+
+  // Step 1: Upload or choose preloaded
+  const handleStep1Submit = (e) => {
     e.preventDefault();
     setError('');
-    const form = e.target;
-    const fd = new FormData(form);
-    if (sessionName.trim()) fd.set('name', sessionName.trim());
-    if (creatorName.trim()) fd.set('creator_name', creatorName.trim());
-    if (!fd.get('file')) {
-      setError('Select a file');
-      return;
-    }
-    setLoading(true);
-    fetch('/api/sessions/upload', { method: 'POST', body: fd })
-      .then(parseJsonResponse)
-      .then((data) => {
-        const names = data.sheetNames || [];
-        setSessionId(data.sessionId);
-        setSheetNames(names);
-        setSelectedSheet(names[0] || '');
-        setStep(2);
+    if (fileSource === 'upload') {
+      const form = e.target;
+      const fd = new FormData(form);
+      if (sessionName.trim()) fd.set('name', sessionName.trim());
+      if (creatorName.trim()) fd.set('creator_name', creatorName.trim());
+      if (!fd.get('file')) {
+        setError('Select a file');
+        return;
+      }
+      setLoading(true);
+      fetch('/api/sessions/upload', { method: 'POST', body: fd })
+        .then(parseJsonResponse)
+        .then(applyStep1Success)
+        .catch((err) => setError(err.message || 'Upload failed'))
+        .finally(() => setLoading(false));
+    } else {
+      if (!selectedPreloadedPath) {
+        setError('Select a preloaded file');
+        return;
+      }
+      setLoading(true);
+      fetch('/api/sessions/from-preloaded', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preloadedPath: selectedPreloadedPath,
+          name: sessionName.trim() || undefined,
+          creator_name: creatorName.trim() || undefined,
+        }),
       })
-      .catch((err) => setError(err.message || 'Upload failed'))
-      .finally(() => setLoading(false));
+        .then(parseJsonResponse)
+        .then(applyStep1Success)
+        .catch((err) => setError(err.message || 'Failed to use preloaded file'))
+        .finally(() => setLoading(false));
+    }
   };
 
   // Step 2: Choose sheet
@@ -265,8 +306,7 @@ export default function SessionCreate() {
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
       {step === 1 && (
-        <form onSubmit={handleUpload}>
-          <p>Upload an Excel file.</p>
+        <form onSubmit={handleStep1Submit}>
           <p>
             <label>Session name (optional): </label>
             <input
@@ -287,11 +327,61 @@ export default function SessionCreate() {
               style={{ minWidth: '12rem' }}
             />
           </p>
+          <p>Choose an Excel file to use.</p>
           <p>
-            <input type="file" name="file" accept=".xlsx,.xls" required />
+            <label>
+              <input
+                type="radio"
+                name="fileSource"
+                checked={fileSource === 'upload'}
+                onChange={() => setFileSource('upload')}
+              />
+              {' '}Upload file
+            </label>
+            {' '}
+            <label>
+              <input
+                type="radio"
+                name="fileSource"
+                checked={fileSource === 'preloaded'}
+                onChange={() => setFileSource('preloaded')}
+              />
+              {' '}Choose from preloaded
+            </label>
           </p>
-          <button type="submit" className="primary" disabled={loading}>
-            {loading ? 'Uploading...' : 'Upload'}
+          {fileSource === 'upload' && (
+            <p>
+              <input type="file" name="file" accept=".xlsx,.xls" required />
+            </p>
+          )}
+          {fileSource === 'preloaded' && (
+            <p>
+              <label>Preloaded file: </label>
+              <select
+                value={selectedPreloadedPath}
+                onChange={(e) => setSelectedPreloadedPath(e.target.value)}
+                style={{ minWidth: '14rem' }}
+              >
+                <option value="">-- Select file --</option>
+                {preloadedFiles.map((f) => (
+                  <option key={f.path} value={f.path}>{f.name}</option>
+                ))}
+              </select>
+              {' '}
+              <button
+                type="button"
+                onClick={fetchPreloadedFiles}
+                disabled={refreshingPreloaded}
+              >
+                {refreshingPreloaded ? 'Refreshing...' : 'Refresh'}
+              </button>
+              {preloadedFiles.length === 0 && !refreshingPreloaded && (
+                <span style={{ marginLeft: '0.5rem', color: '#666' }}>No preloaded files</span>
+              )}
+            </p>
+          )}
+          <button type="submit" className="primary" disabled={loading || (fileSource === 'preloaded' && refreshingPreloaded)}>
+            {loading ? (fileSource === 'upload' ? 'Uploading...' : 'Loading...') : (fileSource === 'upload' ? 'Upload' : 'Continue')}
           </button>
         </form>
       )}
