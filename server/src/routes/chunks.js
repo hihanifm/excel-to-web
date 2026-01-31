@@ -43,6 +43,17 @@ router.put('/:chunkIndex/complete', (req, res) => {
   res.json({ ok: true });
 });
 
+// PUT /api/sessions/:id/chunks/:chunkIndex/assignee — body: { currentName, newName }
+router.put('/:chunkIndex/assignee', (req, res) => {
+  const sessionId = Number(req.params.id);
+  const chunkIndex = Number(req.params.chunkIndex);
+  const { currentName, newName } = req.body;
+  if (!currentName || newName === undefined) return res.status(400).json({ error: 'currentName and newName required' });
+  const result = sessionService.updateChunkAssignee(sessionId, chunkIndex, currentName, newName);
+  if (!result.ok) return res.status(403).json({ error: result.error });
+  res.json({ ok: true });
+});
+
 // PUT /api/sessions/:id/chunks/:chunkIndex/tag — body: { tag } (string, optional)
 router.put('/:chunkIndex/tag', (req, res) => {
   const sessionId = Number(req.params.id);

@@ -287,6 +287,22 @@ export function updateChunkTag(sessionId, chunkIndex, tag) {
   return { ok: true };
 }
 
+/** Update assignee name; currentName must match existing assignee. */
+export function updateChunkAssignee(sessionId, chunkIndex, currentName, newName) {
+  const db = getDb(process.env.DB_PATH);
+  const chunk = db.prepare(
+    'SELECT assignee_name FROM chunks WHERE session_id = ? AND chunk_index = ?'
+  ).get(sessionId, chunkIndex);
+  if (!chunk) return { ok: false, error: 'Chunk not found' };
+  if (chunk.assignee_name !== currentName) return { ok: false, error: 'Not your chunk' };
+  const trimmed = (newName ?? '').trim();
+  if (!trimmed) return { ok: false, error: 'Name cannot be empty' };
+  db.prepare(
+    'UPDATE chunks SET assignee_name = ? WHERE session_id = ? AND chunk_index = ?'
+  ).run(trimmed, sessionId, chunkIndex);
+  return { ok: true };
+}
+
 export function getSessionRows(sessionId, offset, limit) {
   const db = getDb(process.env.DB_PATH);
   const rows = db.prepare(

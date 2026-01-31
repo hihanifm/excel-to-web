@@ -382,245 +382,310 @@ export default function SessionCreate() {
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
       {step === 1 && (
-        <form onSubmit={handleStep1Submit}>
-          <p>
-            <label>Session name (optional): </label>
+        <form onSubmit={handleStep1Submit} className="form-fields">
+          <div className="form-field">
+            <label htmlFor="session-name">Session name (optional):</label>
             <input
+              id="session-name"
               type="text"
+              className="form-input"
               value={sessionName}
               onChange={(e) => setSessionName(e.target.value)}
               placeholder="e.g. Q1 review"
-              style={{ minWidth: '12rem' }}
             />
-          </p>
-          <p>
-            <label>Creator name (optional): </label>
+          </div>
+          <div className="form-field">
+            <label htmlFor="creator-name">Creator name (optional):</label>
             <input
+              id="creator-name"
               type="text"
+              className="form-input"
               value={creatorName}
               onChange={(e) => setCreatorName(e.target.value)}
               placeholder="Your name"
-              style={{ minWidth: '12rem' }}
             />
-          </p>
-          <p>
-            <label>Delete PIN (optional): </label>
+          </div>
+          <div className="form-field">
+            <label htmlFor="delete-pin">Delete PIN (optional):</label>
             <input
+              id="delete-pin"
               type="password"
+              className="form-input"
               value={deletePin}
               onChange={(e) => setDeletePin(e.target.value)}
               placeholder="Required to delete this session later"
-              style={{ minWidth: '12rem' }}
               autoComplete="off"
             />
-          </p>
-          <p>Choose an Excel file to use.</p>
-          <p>
-            <label>
-              <input
-                type="radio"
-                name="fileSource"
-                checked={fileSource === 'upload'}
-                onChange={() => setFileSource('upload')}
-              />
-              {' '}Upload file
-            </label>
-            {' '}
-            <label>
-              <input
-                type="radio"
-                name="fileSource"
-                checked={fileSource === 'preloaded'}
-                onChange={() => setFileSource('preloaded')}
-              />
-              {' '}Choose from preloaded
-            </label>
-          </p>
-          {fileSource === 'upload' && (
-            <p>
-              <input type="file" name="file" accept=".xlsx,.xls" required />
-            </p>
-          )}
-          {fileSource === 'preloaded' && (
-            <p>
-              <label>Preloaded file: </label>
-              <select
-                value={selectedPreloadedPath}
-                onChange={(e) => setSelectedPreloadedPath(e.target.value)}
-                style={{ minWidth: '14rem' }}
-              >
-                <option value="">-- Select file --</option>
-                {preloadedFiles.map((f) => (
-                  <option key={f.path} value={f.path}>{f.name}</option>
-                ))}
-              </select>
-              {' '}
-              <button
-                type="button"
-                onClick={fetchPreloadedFiles}
-                disabled={refreshingPreloaded}
-              >
-                {refreshingPreloaded ? 'Refreshing...' : 'Refresh'}
+          </div>
+
+          <div className="form-section">
+            <p className="form-section-title">Choose an Excel file to use.</p>
+            <div className="form-field">
+              <label className="form-field-spacer" />
+              <div className="form-radio-group">
+                <label>
+                  <input
+                    type="radio"
+                    name="fileSource"
+                    checked={fileSource === 'upload'}
+                    onChange={() => setFileSource('upload')}
+                  />
+                  Upload file
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="fileSource"
+                    checked={fileSource === 'preloaded'}
+                    onChange={() => setFileSource('preloaded')}
+                  />
+                  Choose from preloaded
+                </label>
+              </div>
+            </div>
+            {fileSource === 'upload' && (
+              <div className="form-field">
+                <label className="form-field-spacer" />
+                <div className="form-input">
+                  <input type="file" name="file" accept=".xlsx,.xls" required />
+                </div>
+              </div>
+            )}
+            {fileSource === 'preloaded' && (
+              <div className="form-field">
+                <label htmlFor="preloaded-file">Preloaded file:</label>
+                <div className="form-input" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <select
+                    id="preloaded-file"
+                    value={selectedPreloadedPath}
+                    onChange={(e) => setSelectedPreloadedPath(e.target.value)}
+                    style={{ flex: '1 1 12rem', minWidth: '12rem' }}
+                  >
+                    <option value="">-- Select file --</option>
+                    {preloadedFiles.map((f) => (
+                      <option key={f.path} value={f.path}>{f.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={fetchPreloadedFiles}
+                    disabled={refreshingPreloaded}
+                  >
+                    {refreshingPreloaded ? 'Refreshing...' : 'Refresh'}
+                  </button>
+                  {preloadedFiles.length === 0 && !refreshingPreloaded && (
+                    <span style={{ color: '#64748b', fontSize: '0.9rem' }}>No preloaded files</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="form-field form-actions">
+            <span className="form-field-spacer" />
+            <div className="form-actions-buttons">
+              <button type="submit" className="primary" disabled={loading || (fileSource === 'preloaded' && refreshingPreloaded)}>
+                {loading ? (fileSource === 'upload' ? 'Uploading...' : 'Loading...') : (fileSource === 'upload' ? 'Upload' : 'Continue')}
               </button>
-              {preloadedFiles.length === 0 && !refreshingPreloaded && (
-                <span style={{ marginLeft: '0.5rem', color: '#666' }}>No preloaded files</span>
-              )}
-            </p>
-          )}
-          <p style={{ marginTop: '1rem' }}>
-            <button type="submit" className="primary" disabled={loading || (fileSource === 'preloaded' && refreshingPreloaded)}>
-              {loading ? (fileSource === 'upload' ? 'Uploading...' : 'Loading...') : (fileSource === 'upload' ? 'Upload' : 'Continue')}
-            </button>
-            {' '}
-            <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
-          </p>
+              <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
+            </div>
+          </div>
         </form>
       )}
 
       {step === 2 && (
-        <form onSubmit={handleChooseSheet}>
-          <p>Choose a sheet to use.</p>
-          <select value={selectedSheet} onChange={(e) => setSelectedSheet(e.target.value)}>
-            <option value="">-- Select sheet --</option>
-            {sheetNames.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
-          <p style={{ marginTop: '1rem' }}>
-            <button type="submit" className="primary" disabled={loading}>
-              {loading ? 'Loading...' : 'Continue'}
-            </button>
-            {' '}
-            <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
-          </p>
+        <form onSubmit={handleChooseSheet} className="form-fields">
+          <p className="form-info">Choose a sheet to use.</p>
+          <div className="form-field">
+            <label htmlFor="sheet-select">Sheet:</label>
+            <select
+              id="sheet-select"
+              className="form-input"
+              value={selectedSheet}
+              onChange={(e) => setSelectedSheet(e.target.value)}
+            >
+              <option value="">-- Select sheet --</option>
+              {sheetNames.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-field form-actions">
+            <span className="form-field-spacer" />
+            <div className="form-actions-buttons">
+              <button type="submit" className="primary" disabled={loading}>
+                {loading ? 'Loading...' : 'Continue'}
+              </button>
+              <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
+            </div>
+          </div>
         </form>
       )}
 
       {step === 3 && (
-        <form onSubmit={handleChunking}>
-          <p>Sheet has <strong>{totalRows}</strong> rows.</p>
-          <p>
-            <label>From row: </label>
+        <form onSubmit={handleChunking} className="form-fields">
+          <p className="form-info">Sheet has <strong>{totalRows}</strong> rows.</p>
+          <div className="form-field form-field-inline">
+            <label htmlFor="from-row">From row:</label>
             <input
+              id="from-row"
               type="number"
               min={1}
               max={totalRows}
               value={chunkRangeStart}
               onChange={(e) => setChunkRangeStart(e.target.value)}
+              className="form-input-narrow"
             />
-            {' '}
-            <label>To row: </label>
+            <label htmlFor="to-row">To row:</label>
             <input
+              id="to-row"
               type="number"
               min={1}
               max={totalRows}
               value={chunkRangeEnd}
               onChange={(e) => setChunkRangeEnd(e.target.value)}
+              className="form-input-narrow"
             />
-          </p>
+          </div>
           {rangeLength > 0 && (
-            <p><strong>{rangeLength}</strong> rows chosen.</p>
+            <p className="form-info"><strong>{rangeLength}</strong> rows chosen.</p>
           )}
-          <p><strong>Size:</strong></p>
-          <label style={{ display: 'block', marginBottom: '0.25rem' }}>
-            <input type="radio" checked={sizeMode === 'equal'} onChange={() => setSizeMode('equal')} />
-            {' '}Equal: chunk size
-            <input
-              type="number"
-              min={1}
-              max={totalRows}
-              value={equalSize}
-              onChange={(e) => setEqualSize(e.target.value)}
-              style={{ marginLeft: '0.5rem', width: '5rem' }}
-            />
-          </label>
-          <label style={{ display: 'block', marginTop: '0.5rem' }}>
-            <input type="radio" checked={sizeMode === 'custom'} onChange={() => setSizeMode('custom')} />
-            {' '}Custom (comma-separated):
-            <input
-              type="text"
-              value={chunkSizesText}
-              onChange={(e) => setChunkSizesText(e.target.value)}
-              placeholder="150, 340, 120, 500"
-              style={{ marginLeft: '0.5rem', minWidth: '14rem' }}
-            />
-          </label>
+
+          <div className="form-section">
+            <p className="form-section-title">Size:</p>
+            <div className="form-field form-field-radio">
+              <label className="form-radio-label">
+                <input type="radio" checked={sizeMode === 'equal'} onChange={() => setSizeMode('equal')} />
+                Equal: chunk size
+              </label>
+              <div className="form-input">
+                <input
+                  type="number"
+                  min={1}
+                  max={totalRows}
+                  value={equalSize}
+                  onChange={(e) => setEqualSize(e.target.value)}
+                  className="form-input-narrow"
+                />
+              </div>
+            </div>
+            <div className="form-field form-field-radio">
+              <label className="form-radio-label">
+                <input type="radio" checked={sizeMode === 'custom'} onChange={() => setSizeMode('custom')} />
+                Custom (comma-separated):
+              </label>
+              <div className="form-input">
+                <input
+                  type="text"
+                  value={chunkSizesText}
+                  onChange={(e) => setChunkSizesText(e.target.value)}
+                  placeholder="150, 340, 120, 500"
+                />
+              </div>
+            </div>
+          </div>
+
           {customSumExceedsRange && (
-            <p style={{ marginTop: '0.5rem', color: 'red' }}>Sum of chunk sizes ({customSizesSum}) exceeds chosen rows ({rangeLength}).</p>
+            <div className="form-field">
+              <span className="form-field-spacer" />
+              <p className="form-info form-info-inline" style={{ color: '#dc2626' }}>Sum of chunk sizes ({customSizesSum}) exceeds chosen rows ({rangeLength}).</p>
+            </div>
           )}
           {rangeLength > 0 && !customSumExceedsRange && (
-            <p style={{ marginTop: '0.75rem' }}>Last chunk will have remaining <strong>{lastChunkRemainder}</strong> rows.</p>
+            <div className="form-field">
+              <span className="form-field-spacer" />
+              <p className="form-info form-info-inline">Last chunk will have remaining <strong>{lastChunkRemainder}</strong> rows.</p>
+            </div>
           )}
-          <p style={{ marginTop: '1rem' }}>
-            <button type="submit" className="primary" disabled={loading || customSumExceedsRange}>
-              {loading ? 'Saving...' : 'Continue'}
-            </button>
-            {' '}
-            <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
-          </p>
+
+          <div className="form-field form-actions">
+            <span className="form-field-spacer" />
+            <div className="form-actions-buttons">
+              <button type="submit" className="primary" disabled={loading || customSumExceedsRange}>
+                {loading ? 'Saving...' : 'Continue'}
+              </button>
+              <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
+            </div>
+          </div>
         </form>
       )}
 
       {step === 4 && (
-        <form onSubmit={handleSaveColumns}>
-          <p>Select columns for the left panel (read-only) and one target column.</p>
-          <p><strong>Left panel columns (select one or more):</strong></p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-            {headers.map((col) => (
-              <label key={col} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <input
-                  type="checkbox"
-                  checked={leftColumns.includes(col)}
-                  onChange={() => toggleLeftColumn(col)}
-                />
-                {col}
-              </label>
-            ))}
+        <form onSubmit={handleSaveColumns} className="form-fields">
+          <p className="form-info">Select columns for the left panel (read-only) and one target column.</p>
+
+          <div className="form-section">
+            <p className="form-section-title">Left panel columns (select one or more):</p>
+            <div className="form-checkbox-grid">
+              {headers.map((col) => (
+                <label key={col} className="form-checkbox-item">
+                  <input
+                    type="checkbox"
+                    checked={leftColumns.includes(col)}
+                    onChange={() => toggleLeftColumn(col)}
+                  />
+                  <span>{col}</span>
+                </label>
+              ))}
+            </div>
           </div>
-          <p><strong>Target column (one):</strong></p>
-          <label>
-            <input
-              type="radio"
-              checked={!targetColumnIsNew}
-              onChange={() => setTargetColumnIsNew(false)}
-            />
-            Existing column:
-          </label>
-          <select
-            value={targetColumn}
-            onChange={(e) => setTargetColumn(e.target.value)}
-            disabled={targetColumnIsNew}
-            style={{ marginLeft: '1rem' }}
-          >
-            <option value="">-- Select --</option>
-            {headers.map((col) => (
-              <option key={col} value={col}>{col}</option>
-            ))}
-          </select>
-          <br />
-          <label style={{ display: 'block', marginTop: '0.5rem' }}>
-            <input
-              type="radio"
-              checked={targetColumnIsNew}
-              onChange={() => setTargetColumnIsNew(true)}
-            />
-            New column:
-          </label>
-          <input
-            type="text"
-            value={newColumnName}
-            onChange={(e) => setNewColumnName(e.target.value)}
-            placeholder="Column name"
-            disabled={!targetColumnIsNew}
-            style={{ marginLeft: '1rem' }}
-          />
-          <p style={{ marginTop: '1rem' }}>
-            <button type="submit" className="primary" disabled={loading}>
-              {loading ? 'Saving...' : 'Continue'}
-            </button>
-            {' '}
-            <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
-          </p>
+
+          <div className="form-section">
+            <p className="form-section-title">Target column (one):</p>
+            <div className="form-field form-field-radio">
+              <label className="form-radio-label">
+                <input
+                  type="radio"
+                  checked={!targetColumnIsNew}
+                  onChange={() => setTargetColumnIsNew(false)}
+                />
+                Existing column:
+              </label>
+              <div className="form-input">
+                <select
+                  value={targetColumn}
+                  onChange={(e) => setTargetColumn(e.target.value)}
+                  disabled={targetColumnIsNew}
+                  style={{ width: '100%', maxWidth: '14rem' }}
+                >
+                  <option value="">-- Select --</option>
+                  {headers.map((col) => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="form-field form-field-radio">
+              <label className="form-radio-label">
+                <input
+                  type="radio"
+                  checked={targetColumnIsNew}
+                  onChange={() => setTargetColumnIsNew(true)}
+                />
+                New column:
+              </label>
+              <div className="form-input">
+                <input
+                  type="text"
+                  value={newColumnName}
+                  onChange={(e) => setNewColumnName(e.target.value)}
+                  placeholder="Column name"
+                  disabled={!targetColumnIsNew}
+                  style={{ width: '100%', maxWidth: '14rem' }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="form-field form-actions">
+            <span className="form-field-spacer" />
+            <div className="form-actions-buttons">
+              <button type="submit" className="primary" disabled={loading}>
+                {loading ? 'Saving...' : 'Continue'}
+              </button>
+              <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
+            </div>
+          </div>
         </form>
       )}
 

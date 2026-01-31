@@ -43,6 +43,7 @@ test.describe.serial('Session and chunk e2e', () => {
 
     await expect(page.getByRole('heading', { name: /create session/i })).toBeVisible();
     await expect(page.getByRole('radio', { name: /choose from preloaded/i })).toBeVisible();
+    await page.getByLabel('Creator name').fill('E2E Test User');
     await page.locator('input[type="file"]').setInputFiles(SAMPLE_PATH);
     await page.getByRole('button', { name: /^upload$/i }).click();
     await page.waitForURL(/\/create$/);
@@ -115,12 +116,12 @@ test.describe.serial('Session and chunk e2e', () => {
       await rowCards.nth(i).getByRole('button').first().click();
     }
 
-    // Resume flow: go back to session and click Resume on the same chunk; should land in editor without claim form
+    // Resume flow: go back to session and click the chunk row (chunk 0 is now in progress); should land in editor without claim form
     await page.goto(`/sessions/${sessionId}`);
     await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible();
-    const resumeLink = page.getByRole('table').getByRole('link', { name: 'Resume' }).first();
-    await expect(resumeLink).toBeVisible({ timeout: 5000 });
-    await resumeLink.click();
+    const firstChunkRow = page.getByRole('table').locator('tbody tr').first();
+    await expect(firstChunkRow).toBeVisible({ timeout: 5000 });
+    await firstChunkRow.locator('td').first().click();
     await page.waitForURL(new RegExp(`/sessions/${sessionId}/chunks/0/edit`));
     // Should see editor and NOT the claim form
     await expect(page.getByText(/rows per view/i)).toBeVisible({ timeout: 10000 });

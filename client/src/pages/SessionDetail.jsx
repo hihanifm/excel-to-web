@@ -121,112 +121,99 @@ export default function SessionDetail() {
 
   return (
     <div className="card">
-      <h1>Session {id}{session.name ? ` – ${session.name}` : ''}</h1>
-      <p>
-        <Link to="/">← Sessions</Link>
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ marginBottom: '0.25rem' }}>Session {id}{session.name ? ` – ${session.name}` : ''}</h1>
+          <p style={{ margin: 0 }}>
+            <Link to="/">← Sessions</Link>
+          </p>
+        </div>
+        <div className="form-actions-buttons">
+          <button className="primary" onClick={handleExport} disabled={exporting}>
+            {exporting ? 'Exporting...' : 'Export Excel'}
+          </button>
+          <button
+            type="button"
+            className="btn-danger"
+            onClick={() => { setDeleteConfirmOpen(true); setDeleteStep('confirm'); setDeletePin(''); setDeleteError(''); }}
+          >
+            Delete session
+          </button>
+        </div>
+      </div>
+      {exportError && <p style={{ color: '#dc2626', margin: '0.5rem 0 0' }}>{exportError}</p>}
 
       {stats && (
-        <div className="card" style={{ background: '#f8fafc' }}>
+        <div className="card card-stats" style={{ marginTop: '1.5rem' }}>
           <h2>Stats</h2>
-          {session.original_filename && (
+          <div className="stats-grid">
+            {session.original_filename && (
+              <p>Original file: <strong>{session.original_filename}</strong></p>
+            )}
+            {session.creator_name && (
+              <p>Creator: <strong>{session.creator_name}</strong></p>
+            )}
             <p>
-              Original file: <strong>{session.original_filename}</strong>
+              Total chunks: <strong>{stats.totalChunks}</strong>
+              {' · '}
+              Completed: <strong>{stats.chunksCompleted}</strong>
+              {' · '}
+              In progress: <strong>{stats.chunksInProgress}</strong>
+              {' · '}
+              Unclaimed: <strong>{stats.chunksUnclaimed}</strong>
             </p>
-          )}
-          {session.creator_name && (
             <p>
-              Creator: <strong>{session.creator_name}</strong>
+              Rows edited: <strong>{stats.rowsEdited}</strong> / {stats.totalRows}
+              {' · '}
+              Completion: <strong>{stats.completionPct}%</strong> (chunks)
             </p>
-          )}
-          <p>
-            Total chunks: <strong>{stats.totalChunks}</strong>
-            {' | '}
-            Completed: <strong>{stats.chunksCompleted}</strong>
-            {' | '}
-            In progress: <strong>{stats.chunksInProgress}</strong>
-            {' | '}
-            Unclaimed: <strong>{stats.chunksUnclaimed}</strong>
-          </p>
-          <p>
-            Rows edited: <strong>{stats.rowsEdited}</strong> / {stats.totalRows}
-            {' | '}
-            Completion: <strong>{stats.completionPct}%</strong> (chunks)
-          </p>
-          <div style={{ height: '12px', background: '#e0e0e0', borderRadius: 6, overflow: 'hidden' }}>
-            <div
-              style={{
-                width: `${stats.completionPct}%`,
-                height: '100%',
-                background: '#2e7d32',
-                transition: 'width 0.3s',
-              }}
-            />
+          </div>
+          <div className="progress-bar">
+            <div className="progress-bar-fill" style={{ width: `${stats.completionPct}%` }} />
           </div>
         </div>
       )}
 
       <h2>Chunks</h2>
-      {exportError && <p style={{ color: 'red' }}>{exportError}</p>}
-      <p>
-        <button className="primary" onClick={handleExport} disabled={exporting}>
-          {exporting ? 'Exporting...' : 'Export Excel'}
-        </button>
-        {' '}
-        <button
-          type="button"
-          onClick={() => { setDeleteConfirmOpen(true); setDeleteStep('confirm'); setDeletePin(''); setDeleteError(''); }}
-          style={{ background: '#c62828', color: 'white', border: 'none' }}
-        >
-          Delete session
-        </button>
-      </p>
       {deleteConfirmOpen && (
-        <div className="card" style={{ background: '#fff8e1', marginTop: '1rem' }}>
+        <div className="card card-warning">
           {deleteStep === 'confirm' ? (
             <>
               <h3>Delete session?</h3>
               <p>Are you sure you want to delete this session? This cannot be undone.</p>
-              <p>
-                <button
-                  type="button"
-                  onClick={() => { setDeleteStep('pin'); setDeleteError(''); }}
-                  style={{ background: '#c62828', color: 'white', border: 'none', marginRight: '0.5rem' }}
-                >
+              <div className="form-actions-buttons" style={{ marginTop: '0.75rem' }}>
+                <button type="button" className="btn-danger" onClick={() => { setDeleteStep('pin'); setDeleteError(''); }}>
                   Yes, continue
                 </button>
-                <button
-                  type="button"
-                  onClick={() => { setDeleteConfirmOpen(false); setDeleteStep('confirm'); }}
-                >
+                <button type="button" onClick={() => { setDeleteConfirmOpen(false); setDeleteStep('confirm'); }}>
                   Cancel
                 </button>
-              </p>
+              </div>
             </>
           ) : (
             <>
               <h3>Delete session</h3>
               <p>PIN is required to delete. Enter the PIN you set when creating this session, or the default PIN if you did not set one.</p>
-              {deleteError && <p style={{ color: 'red' }}>{deleteError}</p>}
-              <p>
-                <label>
-                  PIN:{' '}
-                  <input
-                    type="password"
-                    value={deletePin}
-                    onChange={(e) => setDeletePin(e.target.value)}
-                    placeholder="Delete PIN (required)"
-                    style={{ minWidth: '10rem' }}
-                    autoComplete="off"
-                  />
-                </label>
-              </p>
-              <p>
+              {deleteError && <p style={{ color: '#dc2626', margin: '0.5rem 0 0' }}>{deleteError}</p>}
+              <div className="form-field" style={{ marginTop: '0.75rem', maxWidth: '20rem' }}>
+                <label htmlFor="delete-pin" style={{ flex: '0 0 3rem' }}>PIN:</label>
+                <input
+                  id="delete-pin"
+                  type="password"
+                  value={deletePin}
+                  onChange={(e) => setDeletePin(e.target.value)}
+                  placeholder="Delete PIN (required)"
+                  autoComplete="off"
+                  className="form-input"
+                  style={{ flex: '1 1 10rem' }}
+                />
+              </div>
+              <div className="form-actions-buttons" style={{ marginTop: '0.75rem' }}>
                 <button
                   type="button"
+                  className="btn-danger"
                   onClick={handleDelete}
                   disabled={deleting || !deletePin.trim()}
-                  style={{ background: '#c62828', color: 'white', border: 'none', marginRight: '0.5rem' }}
                 >
                   {deleting ? 'Deleting...' : 'Delete'}
                 </button>
@@ -237,74 +224,77 @@ export default function SessionDetail() {
                 >
                   Cancel
                 </button>
-              </p>
+              </div>
             </>
           )}
         </div>
       )}
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ borderBottom: '2px solid #ccc' }}>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Chunk</th>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Rows</th>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Status</th>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Assignee</th>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Tag</th>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Progress</th>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {chunks.map((ch) => (
-            <tr key={ch.chunk_index} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: '0.5rem' }}>{ch.chunk_index + 1}</td>
-              <td style={{ padding: '0.5rem' }}>{ch.start_row + 1}–{ch.end_row}</td>
-              <td style={{ padding: '0.5rem' }}>{ch.status}</td>
-              <td style={{ padding: '0.5rem' }}>{ch.assignee_name || '–'}</td>
-              <td style={{ padding: '0.5rem' }}>
-                {editingTagChunkIndex === ch.chunk_index ? (
-                  <input
-                    ref={tagInputRef}
-                    type="text"
-                    defaultValue={ch.tag ?? ''}
-                    disabled={tagSavingChunkIndex === ch.chunk_index}
-                    onBlur={() => handleSaveTag(ch.chunk_index, tagInputRef.current?.value)}
-                    onKeyDown={(e) => handleTagKeyDown(ch.chunk_index, tagInputRef.current?.value, e)}
-                    placeholder="Tag"
-                    style={{ width: '100%', minWidth: '6rem', boxSizing: 'border-box' }}
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setEditingTagChunkIndex(ch.chunk_index)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      cursor: 'pointer',
-                      color: (ch.tag ?? '').trim() ? 'inherit' : '#888',
-                      textAlign: 'left',
-                      width: '100%',
-                      minWidth: '6rem',
-                    }}
-                  >
-                    {(ch.tag ?? '').trim() || 'Add tag'}
-                  </button>
-                )}
-              </td>
-              <td style={{ padding: '0.5rem' }}>{ch.rowsEditedInChunk ?? 0} / {ch.rowsInChunk ?? (ch.end_row - ch.start_row)}</td>
-              <td style={{ padding: '0.5rem' }}>
-                <Link
-                  to={`/sessions/${id}/chunks/${ch.chunk_index}/edit`}
-                  state={ch.status !== 'unclaimed' && ch.assignee_name ? { resumeWithName: ch.assignee_name } : undefined}
-                >
-                  {ch.status === 'unclaimed' ? 'Claim' : ch.assignee_name ? 'Resume' : 'View'}
-                </Link>
-              </td>
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Chunk</th>
+              <th>Rows</th>
+              <th>Status</th>
+              <th>Assignee</th>
+              <th>Tag</th>
+              <th>Progress</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {chunks.map((ch) => (
+              <tr
+                key={ch.chunk_index}
+                className="chunk-row-clickable"
+                onClick={() => navigate(`/sessions/${id}/chunks/${ch.chunk_index}/edit`, {
+                  state: ch.status !== 'unclaimed' && ch.assignee_name ? { resumeWithName: ch.assignee_name } : undefined,
+                })}
+              >
+                <td>{ch.chunk_index + 1}</td>
+                <td>{ch.start_row + 1}–{ch.end_row}</td>
+                <td>{ch.status}</td>
+                <td>
+                  {ch.status === 'unclaimed' ? (
+                    <Link
+                      className="link-action"
+                      to={`/sessions/${id}/chunks/${ch.chunk_index}/edit`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Claim
+                    </Link>
+                  ) : (
+                    ch.assignee_name || '–'
+                  )}
+                </td>
+                <td onClick={(e) => e.stopPropagation()}>
+                  {editingTagChunkIndex === ch.chunk_index ? (
+                    <input
+                      ref={tagInputRef}
+                      type="text"
+                      defaultValue={ch.tag ?? ''}
+                      disabled={tagSavingChunkIndex === ch.chunk_index}
+                      onBlur={() => handleSaveTag(ch.chunk_index, tagInputRef.current?.value)}
+                      onKeyDown={(e) => handleTagKeyDown(ch.chunk_index, tagInputRef.current?.value, e)}
+                      placeholder="Tag"
+                      style={{ width: '100%', minWidth: '6rem', boxSizing: 'border-box' }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-link"
+                      onClick={() => setEditingTagChunkIndex(ch.chunk_index)}
+                      style={{ color: (ch.tag ?? '').trim() ? 'inherit' : '#94a3b8' }}
+                    >
+                      {(ch.tag ?? '').trim() || 'Add tag'}
+                    </button>
+                  )}
+                </td>
+                <td>{ch.rowsEditedInChunk ?? 0} / {ch.rowsInChunk ?? (ch.end_row - ch.start_row)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

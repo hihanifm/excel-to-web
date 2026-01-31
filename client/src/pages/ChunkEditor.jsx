@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 
 const CLAIMANT_STORAGE_KEY = (sessionId) => `excel-app_claimant_${sessionId}`;
@@ -79,6 +79,8 @@ export default function ChunkEditor() {
   const [userSelectedRowOffsets, setUserSelectedRowOffsets] = useState(() => new Set());
   const [goToRowInput, setGoToRowInput] = useState('');
   const [chunkTag, setChunkTag] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
+  const persistedAssigneeRef = useRef(''); // Last known assignee in DB (for name-edit API)
 
   // Reset chunk-specific state when switching to a different chunk so we always re-fetch and re-evaluate.
   // Do not overwrite name from sessionStorage here — keep current name so "Your name" stays correct when opening another chunk (avoids showing a stale/cached value like "h1").
@@ -88,6 +90,7 @@ export default function ChunkEditor() {
     setOffset(0);
     setData({ rows: [], totalInChunk: 0, targetOptions: [] });
     setChunkTag('');
+    persistedAssigneeRef.current = '';
   }, [id, chunkIndex]);
 
   const loadRows = (off, lim) => {
@@ -126,7 +129,9 @@ export default function ChunkEditor() {
         setChunkTag(chunk.tag ?? '');
         const assignee = (chunk.assignee_name || '').trim();
         if (effectiveName && norm(chunk.assignee_name) === norm(effectiveName)) {
-          setName(assignee || effectiveName);
+          const nameVal = assignee || effectiveName;
+          setName(nameVal);
+          persistedAssigneeRef.current = nameVal.trim();
           setClaimed(true);
           if (typeof sessionStorage !== 'undefined') {
             sessionStorage.setItem(CLAIMANT_STORAGE_KEY(id), (assignee || effectiveName).trim());
@@ -176,6 +181,29 @@ export default function ChunkEditor() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [claimed, offset, limit, data.totalInChunk]);
 
+  const handleSaveName = (newName) => {
+    const trimmed = (newName ?? '').trim();
+    const currentPersisted = persistedAssigneeRef.current;
+    if (!trimmed || trimmed === currentPersisted) return;
+    setNameSaving(true);
+    fetch(`/api/sessions/${id}/chunks/${chunkIndex}/assignee`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentName: currentPersisted, newName: trimmed }),
+    })
+      .then((r) => {
+        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Failed to update name'); });
+        return r.json();
+      })
+      .then(() => {
+        persistedAssigneeRef.current = trimmed;
+        setName(trimmed);
+        if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(CLAIMANT_STORAGE_KEY(id), trimmed);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setNameSaving(false));
+  };
+
   const handleClaim = async (e) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -206,6 +234,7 @@ export default function ChunkEditor() {
         throw new Error(msg);
       }
       const trimmedName = name.trim();
+      persistedAssigneeRef.current = trimmedName;
       if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(CLAIMANT_STORAGE_KEY(id), trimmedName);
       setClaimed(true);
       setOffset(0);
@@ -344,21 +373,46 @@ export default function ChunkEditor() {
         <button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })}>← Back to session</button>
       </p>
       <p style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', margin: 0, justifyContent: 'space-between' }}>
+        <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
         <span style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
           {chunkTag?.trim() && (
-            <span style={{ color: '#555', fontSize: '0.95rem' }}>Tag: <strong>{chunkTag.trim()}</strong></span>
+            <span style={{ color: '#555', fontSize: '0.9rem' }}>Tag: <strong>{chunkTag.trim()}</strong></span>
+          )}
+          {name?.trim() && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#555', fontSize: '0.9rem' }} title="Edit your name">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={(e) => handleSaveName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.target.blur();
+                  }
+                }}
+                disabled={nameSaving}
+                aria-label="Assignee name"
+                style={{
+                  width: '6rem',
+                  minWidth: '4rem',
+                  maxWidth: '12rem',
+                  padding: '0.2rem 0.4rem',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  border: '1px solid transparent',
+                  borderRadius: 4,
+                  background: 'transparent',
+                  color: 'inherit',
+                }}
+                className="name-input-editable"
+              />
+            </span>
           )}
         </span>
-        {name?.trim() && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#555', fontSize: '0.9rem' }} title={`Editing as ${name.trim()}`}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            <strong>{name.trim()}</strong>
-          </span>
-        )}
       </p>
       <p>
         Rows per view:{' '}
