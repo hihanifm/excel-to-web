@@ -63,6 +63,19 @@ export function updateSessionSheet(id, sheetName, headers, totalRows, options = 
   ).run(sheetName, JSON.stringify(headers), totalRows, status, id);
 }
 
+const VALID_SESSION_STATUSES = ['draft', 'configured', 'completed', 'discarded'];
+
+export function updateSessionStatus(sessionId, newStatus) {
+  if (!VALID_SESSION_STATUSES.includes(newStatus)) {
+    return { ok: false, error: `Invalid status. Must be one of: ${VALID_SESSION_STATUSES.join(', ')}` };
+  }
+  const db = getDb(process.env.DB_PATH);
+  const session = db.prepare('SELECT id, status FROM sessions WHERE id = ?').get(sessionId);
+  if (!session) return { ok: false, error: 'Session not found' };
+  db.prepare('UPDATE sessions SET status = ? WHERE id = ?').run(newStatus, sessionId);
+  return { ok: true };
+}
+
 export function deleteSessionRowsAndChunks(sessionId) {
   const db = getDb(process.env.DB_PATH);
   db.prepare('DELETE FROM session_rows WHERE session_id = ?').run(sessionId);

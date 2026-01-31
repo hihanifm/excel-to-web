@@ -1,5 +1,5 @@
 import { createContext, useState, useContext } from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import Footer from './components/Footer';
 
 export const ApiStatusContext = createContext(null);
@@ -10,18 +10,26 @@ export function useApiStatus() {
 
 export default function App() {
   const [apiStatus, setApiStatus] = useState(null);
+  const location = useLocation();
+
+  const isActive = (path) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <ApiStatusContext.Provider value={{ apiStatus, setApiStatus }}>
+      <header className="app-header">
+        <div className="app-header-inner">
+          <Link to="/" className="app-logo">Excel Labeller</Link>
+          <nav className="app-nav">
+            <Link to="/" className={isActive('/') && !location.pathname.startsWith('/create') && !location.pathname.startsWith('/compare') ? 'active' : ''}>Sessions</Link>
+            <Link to="/compare" className={isActive('/compare') ? 'active' : ''}>Compare</Link>
+          </nav>
+        </div>
+      </header>
       <main className="app-main">
         <div className="container">
-          <nav style={{ marginBottom: '1rem' }}>
-            <Link to="/">Sessions</Link>
-            {' | '}
-            <Link to="/create">Create session</Link>
-            {' | '}
-            <Link to="/compare">Compare</Link>
-          </nav>
           <Outlet />
         </div>
       </main>

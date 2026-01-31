@@ -202,7 +202,7 @@ export default function SessionCreate() {
     const from = Number(chunkRangeStart) || 1;
     const to = Number(chunkRangeEnd) || totalRows;
     if (from < 1 || to > totalRows || from > to) {
-      setError(`Range must be from 1 to ${totalRows}, and from ≤ to`);
+      setError(`Range must be from 1 to ${totalRows}, and from ≤ to (records)`);
       return;
     }
     const rangeLength = to - from + 1;
@@ -231,7 +231,7 @@ export default function SessionCreate() {
       }
       const sum = chunkSizes.reduce((a, b) => a + b, 0);
       if (sum > rangeLength) {
-        setError(`Sum of chunk sizes (${sum}) exceeds chosen rows (${rangeLength})`);
+        setError(`Sum of chunk sizes (${sum}) exceeds chosen records (${rangeLength})`);
         return;
       }
     }
@@ -524,7 +524,7 @@ export default function SessionCreate() {
 
       {step === 3 && (
         <form onSubmit={handleChunking} className="form-fields">
-          <p className="form-info">Sheet has <strong>{totalRows}</strong> rows.</p>
+          <p className="form-info">Sheet has <strong>{totalRows}</strong> records.</p>
           <div className="form-field form-field-inline">
             <label htmlFor="from-row">From row:</label>
             <input
@@ -548,7 +548,7 @@ export default function SessionCreate() {
             />
           </div>
           {rangeLength > 0 && (
-            <p className="form-info"><strong>{rangeLength}</strong> rows chosen.</p>
+            <p className="form-info"><strong>{rangeLength}</strong> records chosen.</p>
           )}
 
           <div className="form-section">
@@ -588,13 +588,13 @@ export default function SessionCreate() {
           {customSumExceedsRange && (
             <div className="form-field">
               <span className="form-field-spacer" />
-              <p className="form-info form-info-inline" style={{ color: '#dc2626' }}>Sum of chunk sizes ({customSizesSum}) exceeds chosen rows ({rangeLength}).</p>
+              <p className="form-info form-info-inline" style={{ color: '#dc2626' }}>Sum of chunk sizes ({customSizesSum}) exceeds chosen records ({rangeLength}).</p>
             </div>
           )}
           {rangeLength > 0 && !customSumExceedsRange && (
             <div className="form-field">
               <span className="form-field-spacer" />
-              <p className="form-info form-info-inline">Last chunk will have remaining <strong>{lastChunkRemainder}</strong> rows.</p>
+              <p className="form-info form-info-inline">Last chunk will have remaining <strong>{lastChunkRemainder}</strong> records.</p>
             </div>
           )}
 

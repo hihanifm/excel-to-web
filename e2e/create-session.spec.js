@@ -51,7 +51,7 @@ test.describe.serial('Session and chunk e2e', () => {
 
     await page.getByRole('combobox').selectOption({ label: 'Sample' });
     await page.getByRole('button', { name: /continue/i }).click();
-    await expect(page.getByText(/sheet has.*rows/i)).toBeVisible();
+    await expect(page.getByText(/sheet has.*records/i)).toBeVisible();
     // Chunking: range 1–50, equal size 25 → 2 chunks (1–25, 26–50)
     const chunkingForm = page.locator('form');
     await chunkingForm.locator('input[type="number"]').nth(0).fill('1');
@@ -106,7 +106,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await form.waitFor({ state: 'visible', timeout: 10000 });
     await form.getByRole('textbox').fill('E2E Tester');
     await form.getByRole('button', { name: 'Claim chunk' }).click();
-    await expect(page.getByText(/rows per view/i)).toBeVisible();
+    await expect(page.getByText(/records per view/i)).toBeVisible();
     await page.locator('select').selectOption('5');
     await expect(page.getByText(/of\s+1[-–]25/)).toBeVisible({ timeout: 10000 });
 
@@ -124,7 +124,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await firstChunkRow.locator('td').first().click();
     await page.waitForURL(new RegExp(`/sessions/${sessionId}/chunks/0/edit`));
     // Should see editor and NOT the claim form
-    await expect(page.getByText(/rows per view/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/records per view/i)).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('button', { name: 'Claim chunk' })).not.toBeVisible();
     await expect(page.getByLabel(/your name/i)).not.toBeVisible();
   });

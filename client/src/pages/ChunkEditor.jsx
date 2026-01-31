@@ -415,7 +415,7 @@ export default function ChunkEditor() {
         </span>
       </p>
       <p>
-        Rows per view:{' '}
+        Records per view:{' '}
         <select value={limit} onChange={(e) => {
           const val = Number(e.target.value);
           setLimit(val);

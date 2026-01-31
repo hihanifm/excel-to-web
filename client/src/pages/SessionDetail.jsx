@@ -17,6 +17,7 @@ export default function SessionDetail() {
   const [deleting, setDeleting] = useState(false);
   const [editingTagChunkIndex, setEditingTagChunkIndex] = useState(null);
   const [tagSavingChunkIndex, setTagSavingChunkIndex] = useState(null);
+  const [statusUpdating, setStatusUpdating] = useState(false);
   const tagInputRef = useRef(null);
 
   const load = () => {
@@ -64,6 +65,24 @@ export default function SessionDetail() {
       })
       .catch((err) => setDeleteError(err.message))
       .finally(() => setDeleting(false));
+  };
+
+  const handleStatusChange = (newStatus) => {
+    setStatusUpdating(true);
+    fetch(`/api/sessions/${id}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    })
+      .then((r) => {
+        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Failed to update status'); });
+        return r.json();
+      })
+      .then(() => {
+        setSession((s) => s ? { ...s, status: newStatus } : s);
+      })
+      .catch((err) => setExportError(err.message))
+      .finally(() => setStatusUpdating(false));
   };
 
   const handleExport = () => {
@@ -123,12 +142,47 @@ export default function SessionDetail() {
     <div className="card">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ marginBottom: '0.25rem' }}>Session {id}{session.name ? ` – ${session.name}` : ''}</h1>
-          <p style={{ margin: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <h1 style={{ margin: 0 }}>Session {id}{session.name ? ` – ${session.name}` : ''}</h1>
+            <span className={`status-badge status-${session.status}`}>
+              {session.status === 'configured' ? 'Active' : session.status.charAt(0).toUpperCase() + session.status.slice(1)}
+            </span>
+          </div>
+          <p style={{ margin: '0.25rem 0 0' }}>
             <Link to="/">← Sessions</Link>
           </p>
         </div>
         <div className="form-actions-buttons">
+          {session.status === 'configured' && (
+            <>
+              <button
+                type="button"
+                className="btn-success"
+                onClick={() => handleStatusChange('completed')}
+                disabled={statusUpdating}
+              >
+                Mark Completed
+              </button>
+              <button
+                type="button"
+                className="btn-warning"
+                onClick={() => handleStatusChange('discarded')}
+                disabled={statusUpdating}
+              >
+                Discard
+              </button>
+            </>
+          )}
+          {(session.status === 'completed' || session.status === 'discarded') && (
+            <button
+              type="button"
+              className="btn-nav"
+              onClick={() => handleStatusChange('configured')}
+              disabled={statusUpdating}
+            >
+              Reopen
+            </button>
+          )}
           <button className="primary" onClick={handleExport} disabled={exporting}>
             {exporting ? 'Exporting...' : 'Export Excel'}
           </button>
@@ -137,7 +191,7 @@ export default function SessionDetail() {
             className="btn-danger"
             onClick={() => { setDeleteConfirmOpen(true); setDeleteStep('confirm'); setDeletePin(''); setDeleteError(''); }}
           >
-            Delete session
+            Delete
           </button>
         </div>
       </div>
@@ -163,7 +217,7 @@ export default function SessionDetail() {
               Unclaimed: <strong>{stats.chunksUnclaimed}</strong>
             </p>
             <p>
-              Rows edited: <strong>{stats.rowsEdited}</strong> / {stats.totalRows}
+              Records edited: <strong>{stats.rowsEdited}</strong> / {stats.totalRows}
               {' · '}
               Completion: <strong>{stats.completionPct}%</strong> (chunks)
             </p>
@@ -234,7 +288,7 @@ export default function SessionDetail() {
           <thead>
             <tr>
               <th>Chunk</th>
-              <th>Rows</th>
+              <th>Records</th>
               <th>Status</th>
               <th>Assignee</th>
               <th>Tag</th>

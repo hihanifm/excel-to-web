@@ -212,6 +212,24 @@ router.get('/:id/compare', (req, res) => {
   res.json(stats);
 });
 
+// PUT /api/sessions/:id/status — body: { status }. Update session status (completed, discarded, etc.)
+router.put('/:id/status', (req, res) => {
+  try {
+    const sessionId = Number(req.params.id);
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ error: 'status required' });
+    const result = sessionService.updateSessionStatus(sessionId, status);
+    if (!result.ok) {
+      const code = result.error === 'Session not found' ? 404 : 400;
+      return res.status(code).json({ error: result.error });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'Failed to update status' });
+  }
+});
+
 // DELETE /api/sessions/:id/abandon — abandon draft/configured session (no PIN). For create-wizard cancel.
 router.delete('/:id/abandon', (req, res) => {
   try {
