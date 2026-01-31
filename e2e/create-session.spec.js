@@ -46,6 +46,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await expect(page.getByRole('heading', { name: /create project/i })).toBeVisible();
     await expect(page.getByRole('radio', { name: /choose from preloaded/i })).toBeVisible();
     await page.getByLabel('Project name').fill(PROJECT_NAME);
+    await page.locator('summary').filter({ hasText: 'Advanced' }).click();
     await page.getByLabel('Creator name').fill('E2E Test User');
     await page.locator('input[type="file"]').setInputFiles(SAMPLE_PATH);
     await page.getByRole('button', { name: /^upload$/i }).click();

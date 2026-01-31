@@ -81,6 +81,8 @@ export default function ChunkEditor() {
   const [chunkTag, setChunkTag] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showCompleteCelebration, setShowCompleteCelebration] = useState(false);
+  const [completeCelebrationVariant, setCompleteCelebrationVariant] = useState('just_completed'); // 'just_completed' | 'already_completed'
   const persistedAssigneeRef = useRef(''); // Last known assignee in DB (for name-edit API)
 
   // Reset chunk-specific state when switching to a different chunk so we always re-fetch and re-evaluate.
@@ -91,6 +93,7 @@ export default function ChunkEditor() {
     setOffset(0);
     setData({ rows: [], totalInChunk: 0, targetOptions: [] });
     setChunkTag('');
+    setCompleteCelebrationVariant('just_completed');
     persistedAssigneeRef.current = '';
   }, [id, chunkIndex]);
 
@@ -124,6 +127,14 @@ export default function ChunkEditor() {
       })
       .then((chunk) => {
         if (!chunk) {
+          setResumeChecked(true);
+          return;
+        }
+        if (chunk.status === 'completed') {
+          setChunkTag(chunk.tag ?? '');
+          setName((chunk.assignee_name || '').trim() || 'Completed');
+          setClaimed(true);
+          setOffset(0);
           setResumeChecked(true);
           return;
         }
@@ -196,7 +207,7 @@ export default function ChunkEditor() {
                 r.rowOffsetInChunk === row.rowOffsetInChunk ? { ...r, targetCurrentValue: opt } : r
               ),
             }));
-            setTimeout(() => handleSetValue(row.rowOffsetInChunk, opt), 300);
+            setTimeout(() => handleSetValue(row.rowOffsetInChunk, opt), 100);
           } else if (autoAdvance && data.rows.length === 1 && offset + 1 < data.totalInChunk) {
             fetch(`/api/sessions/${id}/chunks/${chunkIndex}/rows-viewed`, {
               method: 'PUT',
@@ -318,6 +329,19 @@ export default function ChunkEditor() {
         } else {
           loadRows(offset, limit);
         }
+        // All records in chunk are now labeled → complete chunk and show celebration (same as clicking "Mark chunk as completed").
+        if (labeledFromServer === data.totalInChunk && data.totalInChunk > 0) {
+          fetch(`/api/sessions/${id}/chunks/${chunkIndex}/complete`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name.trim() }),
+          })
+            .then((r) => {
+              if (!r.ok) return;
+              setShowCompleteCelebration(true);
+            })
+            .catch(() => {});
+        }
       })
       .catch((err) => setError(err.message));
   };
@@ -330,11 +354,17 @@ export default function ChunkEditor() {
     })
       .then((r) => {
         if (!r.ok) throw new Error(r.status === 403 ? 'Not your chunk' : 'Failed');
-        setSuccessMessage('Chunk completed');
-        setTimeout(() => navigate(`/sessions/${id}`, { replace: true }), 1200);
+        setShowCompleteCelebration(true);
       })
       .catch((err) => setError(err.message));
   };
+
+  // Redirect to session page after celebration overlay (both "just completed" and "already completed").
+  useEffect(() => {
+    if (!showCompleteCelebration) return;
+    const t = setTimeout(() => navigate(`/sessions/${id}`, { replace: true }), 4000);
+    return () => clearTimeout(t);
+  }, [showCompleteCelebration, id, navigate]);
 
   const markCurrentPageAsViewed = () => {
     if (!name?.trim() || data.totalInChunk === 0) return;
@@ -428,6 +458,40 @@ export default function ChunkEditor() {
 
   return (
     <>
+      {showCompleteCelebration && (
+        <div className="chunk-complete-celebration" role="dialog" aria-live="polite" aria-label="Chunk completed">
+          <div className="chunk-complete-celebration-backdrop" />
+          <div className="chunk-complete-confetti" aria-hidden="true">
+            {[...Array(48)].map((_, i) => (
+              <div key={`c-${i}`} className="chunk-complete-confetti-piece" style={{ '--i': i, '--delay': (i % 8) * 0.06, '--size': 6 + (i % 5) }} />
+            ))}
+          </div>
+          <div className="chunk-complete-balloons" aria-hidden="true">
+            {[...Array(18)].map((_, i) => (
+              <div key={`b-${i}`} className="chunk-complete-balloon" style={{ '--i': i, '--x': (i * 7 + 3) % 100, '--delay': (i % 6) * 0.2 }} />
+            ))}
+          </div>
+          <div className="chunk-complete-stars" aria-hidden="true">
+            {[...Array(24)].map((_, i) => (
+              <div key={`s-${i}`} className="chunk-complete-star" style={{ '--i': i, '--x': (i * 11 + 5) % 100, '--y': (i * 13 + 7) % 100, '--delay': (i % 5) * 0.15 }} />
+            ))}
+          </div>
+          <div className="chunk-complete-graffiti">
+            <p className="chunk-complete-graffiti-title">CHUNK COMPLETED!</p>
+            {completeCelebrationVariant === 'already_completed' ? (
+              <>
+                <p className="chunk-complete-graffiti-thanks">Thanks for helping to improve the accuracy of the data.</p>
+                <p className="chunk-complete-graffiti-done">This chunk is already completed.</p>
+              </>
+            ) : (
+              <>
+                <p className="chunk-complete-graffiti-thanks">Thanks for your effort.</p>
+                <p className="chunk-complete-graffiti-done">✓ Marked as completed</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       <div className="chunk-editor-back">
         <button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })} aria-label="Back to project">
           ← BACK
@@ -518,7 +582,7 @@ export default function ChunkEditor() {
                                     r.rowOffsetInChunk === row.rowOffsetInChunk ? { ...r, targetCurrentValue: opt } : r
                                   ),
                                 }));
-                                setTimeout(() => handleSetValue(row.rowOffsetInChunk, opt), 300);
+                                setTimeout(() => handleSetValue(row.rowOffsetInChunk, opt), 100);
                               } else if (autoAdvance && data.rows.length === 1 && offset + 1 < data.totalInChunk) {
                                 fetch(`/api/sessions/${id}/chunks/${chunkIndex}/rows-viewed`, {
                                   method: 'PUT',
@@ -542,34 +606,6 @@ export default function ChunkEditor() {
           </div>
           <div className="chunk-editor-nav-group">
             <div className="chunk-editor-nav-row">
-              <button type="button" className="btn-nav chunk-editor-nav-prev-next" onClick={goPrev} disabled={offset === 0} aria-label="Previous record">
-                ← Previous
-              </button>
-              {(() => {
-                if (typeof sessionStorage === 'undefined' || !data.totalInChunk) return null;
-                const v = sessionStorage.getItem(LAST_UPDATED_ROW_KEY(id, chunkIndex));
-                const rowOff = v != null ? parseInt(v, 10) : NaN;
-                if (Number.isNaN(rowOff) || rowOff < 0 || rowOff >= data.totalInChunk) return null;
-                const displayRow = data.chunkStartRow != null ? data.chunkStartRow + rowOff + 1 : rowOff + 1;
-                return (
-                  <button
-                    type="button"
-                    className="btn-nav chunk-editor-nav-last-updated"
-                    title={`Last updated (record ${displayRow})`}
-                    onClick={() => {
-                      setOffset(rowOff);
-                      loadRows(rowOff, limit);
-                      setGoToRowInput('');
-                      if (typeof window !== 'undefined') window.scrollTo(0, 0);
-                    }}
-                  >
-                    Last updated (record {displayRow})
-                  </button>
-                );
-              })()}
-              <button type="button" className="btn-nav chunk-editor-nav-prev-next" onClick={goNext} disabled={offset + limit >= data.totalInChunk} aria-label="Next record">
-                Next →
-              </button>
               <div className="chunk-editor-row-nav chunk-editor-row-nav-inline">
                 <span>Record</span>
                 <input
@@ -591,8 +627,38 @@ export default function ChunkEditor() {
                 />
                 <span>of {rangeStr}</span>
               </div>
+              <div className="chunk-editor-nav-buttons">
+                <button type="button" className="btn-nav chunk-editor-nav-prev-next" onClick={goPrev} disabled={offset === 0} aria-label="Previous record">
+                  ← Previous
+                </button>
+                {(() => {
+                  if (typeof sessionStorage === 'undefined' || !data.totalInChunk) return null;
+                  const v = sessionStorage.getItem(LAST_UPDATED_ROW_KEY(id, chunkIndex));
+                  const rowOff = v != null ? parseInt(v, 10) : NaN;
+                  if (Number.isNaN(rowOff) || rowOff < 0 || rowOff >= data.totalInChunk) return null;
+                  const displayRow = data.chunkStartRow != null ? data.chunkStartRow + rowOff + 1 : rowOff + 1;
+                  return (
+                    <button
+                      type="button"
+                      className="btn-nav chunk-editor-nav-last-updated"
+                      title={`Last updated (record ${displayRow})`}
+                      onClick={() => {
+                        setOffset(rowOff);
+                        loadRows(rowOff, limit);
+                        setGoToRowInput('');
+                        if (typeof window !== 'undefined') window.scrollTo(0, 0);
+                      }}
+                    >
+                      Last updated (record {displayRow})
+                    </button>
+                  );
+                })()}
+                <button type="button" className="btn-nav chunk-editor-nav-prev-next" onClick={goNext} disabled={offset + limit >= data.totalInChunk} aria-label="Next record">
+                  Next →
+                </button>
+              </div>
+              <span className="chunk-editor-shortcut-hint" aria-hidden="true">← → move, 1–{Math.min(9, (data.targetOptions?.length || 0))} label</span>
             </div>
-            <p className="chunk-editor-shortcut-hint" aria-hidden="true">← → move, 1–{Math.min(9, (data.targetOptions?.length || 0))} label</p>
           </div>
           <div className="chunk-editor-settings-bottom">
             <div className="chunk-editor-toolbar">
