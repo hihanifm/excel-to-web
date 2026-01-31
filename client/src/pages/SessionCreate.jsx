@@ -41,6 +41,7 @@ export default function SessionCreate() {
   const [deletePin, setDeletePin] = useState('');
   const handledBlockRef = useRef(false);
   const leaveViaCancelRef = useRef(false);
+  const navigatingToSuccessRef = useRef(false);
 
   const hasCreateInProgress =
     step >= 2 ||
@@ -50,6 +51,11 @@ export default function SessionCreate() {
   useEffect(() => {
     if (blocker.state !== 'blocked') {
       handledBlockRef.current = false;
+      return;
+    }
+    if (navigatingToSuccessRef.current) {
+      navigatingToSuccessRef.current = false;
+      blocker.proceed();
       return;
     }
     if (leaveViaCancelRef.current) {
@@ -329,7 +335,10 @@ export default function SessionCreate() {
       body: JSON.stringify({ targetOptions: options }),
     })
       .then(parseJsonResponse)
-      .then(() => navigate(`/sessions/${sessionId}`))
+      .then(() => {
+        navigatingToSuccessRef.current = true;
+        navigate(`/sessions/${sessionId}`);
+      })
       .catch((err) => setError(err.message || 'Failed'))
       .finally(() => setLoading(false));
   };
