@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS chunks (
   claimed_at TEXT,
   status TEXT NOT NULL DEFAULT 'unclaimed',
   completed_at TEXT,
+  tag TEXT,
   PRIMARY KEY (session_id, chunk_index)
 );
 

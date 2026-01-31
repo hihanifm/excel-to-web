@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useBlocker } from 'react-router-dom';
 
 const STEPS = ['Upload', 'Choose sheet', 'Chunking', 'Choose columns', 'Configure options'];
 
@@ -39,6 +39,58 @@ export default function SessionCreate() {
   const [selectedPreloadedPath, setSelectedPreloadedPath] = useState('');
   const [refreshingPreloaded, setRefreshingPreloaded] = useState(false);
   const [deletePin, setDeletePin] = useState('');
+  const handledBlockRef = useRef(false);
+  const leaveViaCancelRef = useRef(false);
+
+  const hasCreateInProgress =
+    step >= 2 ||
+    (step === 1 && (sessionName.trim() || creatorName.trim() || deletePin.trim() || selectedPreloadedPath));
+  const blocker = useBlocker(hasCreateInProgress);
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked') {
+      handledBlockRef.current = false;
+      return;
+    }
+    if (leaveViaCancelRef.current) {
+      leaveViaCancelRef.current = false;
+      blocker.proceed();
+      return;
+    }
+    if (handledBlockRef.current) return;
+    handledBlockRef.current = true;
+    const message = sessionId
+      ? 'Discard and delete this draft session?'
+      : 'Leave? Your progress will be lost.';
+    const ok = window.confirm(message);
+    if (ok) {
+      if (sessionId) {
+        fetch(`/api/sessions/${sessionId}/abandon`, { method: 'DELETE' })
+          .then((r) => {
+            if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Abandon failed'); });
+            return r.json();
+          })
+          .then(() => blocker.proceed())
+          .catch(() => {
+            handledBlockRef.current = false;
+            blocker.reset();
+          });
+      } else {
+        blocker.proceed();
+      }
+    } else {
+      blocker.reset();
+    }
+  }, [blocker.state, sessionId, blocker]);
+
+  useEffect(() => {
+    if (!hasCreateInProgress) return;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [hasCreateInProgress]);
 
   const fetchPreloadedFiles = () => {
     setRefreshingPreloaded(true);
@@ -288,6 +340,7 @@ export default function SessionCreate() {
       return;
     }
     if (!window.confirm('Discard and delete this draft session?')) return;
+    leaveViaCancelRef.current = true;
     setLoading(true);
     setError('');
     fetch(`/api/sessions/${sessionId}/abandon`, { method: 'DELETE' })
@@ -296,7 +349,10 @@ export default function SessionCreate() {
         return r.json();
       })
       .then(() => navigate('/'))
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        leaveViaCancelRef.current = false;
+        setError(err.message);
+      })
       .finally(() => setLoading(false));
   };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 
 export default function SessionDetail() {
@@ -15,6 +15,9 @@ export default function SessionDetail() {
   const [deletePin, setDeletePin] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [editingTagChunkIndex, setEditingTagChunkIndex] = useState(null);
+  const [tagSavingChunkIndex, setTagSavingChunkIndex] = useState(null);
+  const tagInputRef = useRef(null);
 
   const load = () => {
     setLoading(true);
@@ -37,6 +40,10 @@ export default function SessionDetail() {
     const t = setInterval(load, 10000);
     return () => clearInterval(t);
   }, [id]);
+
+  useEffect(() => {
+    if (editingTagChunkIndex != null) tagInputRef.current?.focus();
+  }, [editingTagChunkIndex]);
 
   const handleDelete = () => {
     setDeleting(true);
@@ -76,6 +83,37 @@ export default function SessionDetail() {
       })
       .catch((err) => setExportError(err.message))
       .finally(() => setExporting(false));
+  };
+
+  const handleSaveTag = (chunkIndex, value) => {
+    const tag = (value ?? '').trim();
+    setEditingTagChunkIndex(null);
+    setTagSavingChunkIndex(chunkIndex);
+    fetch(`/api/sessions/${id}/chunks/${chunkIndex}/tag`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag }),
+    })
+      .then((r) => {
+        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Failed to save tag'); });
+        return r.json();
+      })
+      .then(() => {
+        setChunks((prev) => prev.map((c) => (c.chunk_index === chunkIndex ? { ...c, tag } : c)));
+      })
+      .catch(console.error)
+      .finally(() => setTagSavingChunkIndex(null));
+  };
+
+  const handleTagKeyDown = (chunkIndex, currentValue, e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveTag(chunkIndex, currentValue);
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setEditingTagChunkIndex(null);
+    }
   };
 
   if (loading && !session) return <div className="card">Loading...</div>;
@@ -211,6 +249,7 @@ export default function SessionDetail() {
             <th style={{ textAlign: 'left', padding: '0.5rem' }}>Rows</th>
             <th style={{ textAlign: 'left', padding: '0.5rem' }}>Status</th>
             <th style={{ textAlign: 'left', padding: '0.5rem' }}>Assignee</th>
+            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Tag</th>
             <th style={{ textAlign: 'left', padding: '0.5rem' }}>Progress</th>
             <th style={{ textAlign: 'left', padding: '0.5rem' }}>Action</th>
           </tr>
@@ -222,6 +261,37 @@ export default function SessionDetail() {
               <td style={{ padding: '0.5rem' }}>{ch.start_row + 1}–{ch.end_row}</td>
               <td style={{ padding: '0.5rem' }}>{ch.status}</td>
               <td style={{ padding: '0.5rem' }}>{ch.assignee_name || '–'}</td>
+              <td style={{ padding: '0.5rem' }}>
+                {editingTagChunkIndex === ch.chunk_index ? (
+                  <input
+                    ref={tagInputRef}
+                    type="text"
+                    defaultValue={ch.tag ?? ''}
+                    disabled={tagSavingChunkIndex === ch.chunk_index}
+                    onBlur={() => handleSaveTag(ch.chunk_index, tagInputRef.current?.value)}
+                    onKeyDown={(e) => handleTagKeyDown(ch.chunk_index, tagInputRef.current?.value, e)}
+                    placeholder="Tag"
+                    style={{ width: '100%', minWidth: '6rem', boxSizing: 'border-box' }}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEditingTagChunkIndex(ch.chunk_index)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      color: (ch.tag ?? '').trim() ? 'inherit' : '#888',
+                      textAlign: 'left',
+                      width: '100%',
+                      minWidth: '6rem',
+                    }}
+                  >
+                    {(ch.tag ?? '').trim() || 'Add tag'}
+                  </button>
+                )}
+              </td>
               <td style={{ padding: '0.5rem' }}>{ch.rowsEditedInChunk ?? 0} / {ch.rowsInChunk ?? (ch.end_row - ch.start_row)}</td>
               <td style={{ padding: '0.5rem' }}>
                 <Link

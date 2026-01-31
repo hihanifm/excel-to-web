@@ -198,7 +198,7 @@ export function getSessionStats(sessionId) {
 export function getChunks(sessionId) {
   const db = getDb(process.env.DB_PATH);
   const chunks = db.prepare(
-    `SELECT chunk_index, start_row, end_row, assignee_name, status, completed_at
+    `SELECT chunk_index, start_row, end_row, assignee_name, status, completed_at, tag
      FROM chunks WHERE session_id = ? ORDER BY chunk_index`
   ).all(sessionId);
   const rowsEditedCount = db.prepare(
@@ -217,7 +217,7 @@ export function getChunks(sessionId) {
 export function getChunk(sessionId, chunkIndex) {
   const db = getDb(process.env.DB_PATH);
   const chunk = db.prepare(
-    'SELECT chunk_index, start_row, end_row, assignee_name, status, completed_at FROM chunks WHERE session_id = ? AND chunk_index = ?'
+    'SELECT chunk_index, start_row, end_row, assignee_name, status, completed_at, tag FROM chunks WHERE session_id = ? AND chunk_index = ?'
   ).get(sessionId, chunkIndex);
   if (!chunk) return null;
   const rowsEdited = db.prepare(
@@ -272,6 +272,19 @@ export function getChunkAssignee(sessionId, chunkIndex) {
     'SELECT assignee_name FROM chunks WHERE session_id = ? AND chunk_index = ?'
   ).get(sessionId, chunkIndex);
   return chunk?.assignee_name;
+}
+
+export function updateChunkTag(sessionId, chunkIndex, tag) {
+  const db = getDb(process.env.DB_PATH);
+  const chunk = db.prepare(
+    'SELECT chunk_index FROM chunks WHERE session_id = ? AND chunk_index = ?'
+  ).get(sessionId, chunkIndex);
+  if (!chunk) return { ok: false, error: 'Chunk not found' };
+  const tagStr = tag != null ? String(tag) : '';
+  db.prepare(
+    'UPDATE chunks SET tag = ? WHERE session_id = ? AND chunk_index = ?'
+  ).run(tagStr, sessionId, chunkIndex);
+  return { ok: true };
 }
 
 export function getSessionRows(sessionId, offset, limit) {

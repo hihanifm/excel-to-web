@@ -43,6 +43,17 @@ router.put('/:chunkIndex/complete', (req, res) => {
   res.json({ ok: true });
 });
 
+// PUT /api/sessions/:id/chunks/:chunkIndex/tag — body: { tag } (string, optional)
+router.put('/:chunkIndex/tag', (req, res) => {
+  const sessionId = Number(req.params.id);
+  const chunkIndex = Number(req.params.chunkIndex);
+  if (!sessionService.getSession(sessionId)) return res.status(404).json({ error: 'Session not found' });
+  const tag = req.body.tag !== undefined ? req.body.tag : '';
+  const result = sessionService.updateChunkTag(sessionId, chunkIndex, tag);
+  if (!result.ok) return res.status(404).json({ error: result.error });
+  res.json({ ok: true });
+});
+
 // GET /api/sessions/:id/chunks/:chunkIndex/row/:rowOffset — ?limit=N
 router.get('/:chunkIndex/row/:rowOffset', (req, res) => {
   const sessionId = Number(req.params.id);

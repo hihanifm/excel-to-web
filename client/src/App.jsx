@@ -1,10 +1,5 @@
 import { createContext, useState, useContext } from 'react';
-import { Routes, Route, Link } from 'react-router-dom';
-import SessionList from './pages/SessionList';
-import SessionCreate from './pages/SessionCreate';
-import Compare from './pages/Compare';
-import SessionDetail from './pages/SessionDetail';
-import ChunkEditor from './pages/ChunkEditor';
+import { Outlet, Link } from 'react-router-dom';
 import Footer from './components/Footer';
 
 export const ApiStatusContext = createContext(null);
@@ -27,13 +22,7 @@ export default function App() {
             {' | '}
             <Link to="/compare">Compare</Link>
           </nav>
-          <Routes>
-            <Route path="/" element={<SessionList />} />
-            <Route path="/create" element={<SessionCreate />} />
-            <Route path="/compare" element={<Compare />} />
-            <Route path="/sessions/:id" element={<SessionDetail />} />
-            <Route path="/sessions/:id/chunks/:chunkIndex/edit" element={<ChunkEditor />} />
-          </Routes>
+          <Outlet />
         </div>
       </main>
       <Footer />

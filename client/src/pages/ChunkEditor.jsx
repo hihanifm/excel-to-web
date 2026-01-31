@@ -78,6 +78,7 @@ export default function ChunkEditor() {
   const [soundOnSelect, setSoundOnSelect] = useState(getStoredSoundOnSelect);
   const [userSelectedRowOffsets, setUserSelectedRowOffsets] = useState(() => new Set());
   const [goToRowInput, setGoToRowInput] = useState('');
+  const [chunkTag, setChunkTag] = useState('');
 
   // Reset chunk-specific state when switching to a different chunk so we always re-fetch and re-evaluate.
   // Do not overwrite name from sessionStorage here — keep current name so "Your name" stays correct when opening another chunk (avoids showing a stale/cached value like "h1").
@@ -86,6 +87,7 @@ export default function ChunkEditor() {
     setResumeChecked(false);
     setOffset(0);
     setData({ rows: [], totalInChunk: 0, targetOptions: [] });
+    setChunkTag('');
   }, [id, chunkIndex]);
 
   const loadRows = (off, lim) => {
@@ -121,6 +123,7 @@ export default function ChunkEditor() {
           setResumeChecked(true);
           return;
         }
+        setChunkTag(chunk.tag ?? '');
         const assignee = (chunk.assignee_name || '').trim();
         if (effectiveName && norm(chunk.assignee_name) === norm(effectiveName)) {
           setName(assignee || effectiveName);
@@ -315,7 +318,12 @@ export default function ChunkEditor() {
     return (
       <div className="card">
         <p style={{ margin: '0 0 0.5rem 0' }}><button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })}>← Back to session</button></p>
-        <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
+        <p style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap', margin: 0 }}>
+          <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
+          {chunkTag?.trim() && (
+            <span style={{ color: '#555', fontSize: '0.95rem' }}>Tag: <strong>{chunkTag.trim()}</strong></span>
+          )}
+        </p>
         {error && <p style={{ color: 'red' }}>{error}</p>}
         <form onSubmit={handleClaim}>
           <p>
@@ -337,6 +345,9 @@ export default function ChunkEditor() {
       </p>
       <p style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap', margin: 0 }}>
         <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
+        {chunkTag?.trim() && (
+          <span style={{ color: '#555', fontSize: '0.95rem' }}>Tag: <strong>{chunkTag.trim()}</strong></span>
+        )}
         {name?.trim() && (
           <span style={{ color: '#666' }}>Editing as: <strong>{name.trim()}</strong></span>
         )}
