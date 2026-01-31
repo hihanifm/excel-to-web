@@ -4,6 +4,7 @@ const path = require('path');
 
 const SAMPLE_PATH = path.join(__dirname, '../samples/sample.xlsx');
 const DELAY_AFTER_SESSION_MS = 2000;
+const PROJECT_NAME = `AI Labelling ${Math.floor(Math.random() * 100000)}`;
 
 /** Shared session ID from first test for second test (serial run). */
 let sessionId;
@@ -44,7 +45,7 @@ test.describe.serial('Session and chunk e2e', () => {
 
     await expect(page.getByRole('heading', { name: /create project/i })).toBeVisible();
     await expect(page.getByRole('radio', { name: /choose from preloaded/i })).toBeVisible();
-    await page.getByLabel('Project name').fill('E2E Test Project');
+    await page.getByLabel('Project name').fill(PROJECT_NAME);
     await page.getByLabel('Creator name').fill('E2E Test User');
     await page.locator('input[type="file"]').setInputFiles(SAMPLE_PATH);
     await page.getByRole('button', { name: /^upload$/i }).click();
@@ -112,7 +113,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await page.locator('select').selectOption('5');
     await expect(page.getByText(/of\s+1[-–]25/)).toBeVisible({ timeout: 10000 });
 
-    const rowCards = page.locator('.card[style*="100%"]');
+    const rowCards = page.locator('.card-row');
     await expect(rowCards).toHaveCount(5);
     for (let i = 0; i < 5; i++) {
       await rowCards.nth(i).getByRole('button').first().click();

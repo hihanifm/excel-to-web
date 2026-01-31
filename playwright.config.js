@@ -11,7 +11,7 @@ module.exports = defineConfig({
   use: {
     baseURL: 'http://localhost:36001',
     trace: 'on-first-retry',
-    headless: false, // headful
+    headless: true,
     video: 'on-first-retry',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
