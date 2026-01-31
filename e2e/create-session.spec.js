@@ -8,6 +8,33 @@ const DELAY_AFTER_SESSION_MS = 2000;
 /** Shared session ID from first test for second test (serial run). */
 let sessionId;
 
+test.describe('Create session cancel', () => {
+  test('cancel on step 1 navigates to sessions', async ({ page }) => {
+    await page.goto('/create');
+    await expect(page.getByRole('heading', { name: /create session/i })).toBeVisible();
+    await page.getByRole('button', { name: /cancel/i }).click();
+    await expect(page).not.toHaveURL(/\/create/);
+    await expect(page.getByRole('heading', { name: /^sessions$/i })).toBeVisible();
+  });
+
+  test('cancel on step 2 abandons draft and navigates', async ({ page }) => {
+    // Stub window.confirm to return true so we avoid native dialog handling
+    await page.addInitScript(() => {
+      window.__confirmStub = true;
+      window.confirm = () => window.__confirmStub;
+    });
+    await page.goto('/create');
+    await expect(page.getByRole('heading', { name: /create session/i })).toBeVisible();
+    await page.locator('input[type="file"]').setInputFiles(SAMPLE_PATH);
+    await page.getByRole('button', { name: /^upload$/i }).click();
+    await expect(page.getByText(/choose a sheet/i)).toBeVisible({ timeout: 10000 });
+
+    await page.getByRole('button', { name: /cancel/i }).click();
+    await expect(page).not.toHaveURL(/\/create/, { timeout: 15000 });
+    await expect(page.getByRole('heading', { name: /^sessions$/i })).toBeVisible();
+  });
+});
+
 test.describe.serial('Session and chunk e2e', () => {
   test('create session with sample file', async ({ page }) => {
     test.setTimeout(60000);
@@ -32,16 +59,14 @@ test.describe.serial('Session and chunk e2e', () => {
     await page.getByRole('button', { name: /continue/i }).click();
     await expect(page.getByText(/left panel columns/i)).toBeVisible();
 
-    await page.getByLabel('Name', { exact: true }).check();
+    await page.getByLabel('Conversation', { exact: true }).check();
     await page.getByLabel('Status', { exact: true }).check();
     await page.getByRole('radio', { name: /new column/i }).check();
     await page.getByPlaceholder(/column name/i).fill('target');
     await page.getByRole('button', { name: /continue/i }).click();
     await expect(page.getByText(/configure the options/i)).toBeVisible();
 
-    await page.locator('select').selectOption({ label: 'Status' });
-    await page.getByRole('button', { name: /pre-fill/i }).click();
-    await page.waitForTimeout(500);
+    await page.getByRole('textbox').fill('Option1\nOption2\nOption3');
     await page.getByRole('button', { name: /finish and open session/i }).click();
 
     await expect(page).toHaveURL(/\/sessions\/\d+$/);
@@ -82,7 +107,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await form.getByRole('button', { name: 'Claim chunk' }).click();
     await expect(page.getByText(/rows per view/i)).toBeVisible();
     await page.locator('select').selectOption('5');
-    await expect(page.getByText(/rows 1[-–]5 of/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/of\s+1[-–]25/)).toBeVisible({ timeout: 10000 });
 
     const rowCards = page.locator('.card[style*="100%"]');
     await expect(rowCards).toHaveCount(5);

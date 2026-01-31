@@ -259,16 +259,6 @@ export default function SessionCreate() {
   };
 
   // Step 5: Configure options
-  const [prefillColumn, setPrefillColumn] = useState('');
-  const handlePreFill = () => {
-    const col = prefillColumn || (targetColumnIsNew ? null : targetColumn);
-    if (!col) return;
-    fetch(`/api/sessions/${sessionId}/columns/${encodeURIComponent(col)}/unique`)
-      .then(parseJsonResponse)
-      .then((data) => setTargetOptions((data.values || []).join('\n')))
-      .catch(console.error);
-  };
-
   const handleSaveOptions = (e) => {
     e.preventDefault();
     const options = targetOptions
@@ -284,11 +274,29 @@ export default function SessionCreate() {
     fetch(`/api/sessions/${sessionId}/config/options`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targetOptions: options, referenceColumn: prefillColumn || null }),
+      body: JSON.stringify({ targetOptions: options }),
     })
       .then(parseJsonResponse)
       .then(() => navigate(`/sessions/${sessionId}`))
       .catch((err) => setError(err.message || 'Failed'))
+      .finally(() => setLoading(false));
+  };
+
+  const handleCancel = () => {
+    if (step === 1) {
+      navigate('/');
+      return;
+    }
+    if (!window.confirm('Discard and delete this draft session?')) return;
+    setLoading(true);
+    setError('');
+    fetch(`/api/sessions/${sessionId}/abandon`, { method: 'DELETE' })
+      .then((r) => {
+        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Abandon failed'); });
+        return r.json();
+      })
+      .then(() => navigate('/'))
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   };
 
@@ -394,9 +402,13 @@ export default function SessionCreate() {
               )}
             </p>
           )}
-          <button type="submit" className="primary" disabled={loading || (fileSource === 'preloaded' && refreshingPreloaded)}>
-            {loading ? (fileSource === 'upload' ? 'Uploading...' : 'Loading...') : (fileSource === 'upload' ? 'Upload' : 'Continue')}
-          </button>
+          <p style={{ marginTop: '1rem' }}>
+            <button type="submit" className="primary" disabled={loading || (fileSource === 'preloaded' && refreshingPreloaded)}>
+              {loading ? (fileSource === 'upload' ? 'Uploading...' : 'Loading...') : (fileSource === 'upload' ? 'Upload' : 'Continue')}
+            </button>
+            {' '}
+            <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
+          </p>
         </form>
       )}
 
@@ -413,6 +425,8 @@ export default function SessionCreate() {
             <button type="submit" className="primary" disabled={loading}>
               {loading ? 'Loading...' : 'Continue'}
             </button>
+            {' '}
+            <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
           </p>
         </form>
       )}
@@ -476,6 +490,8 @@ export default function SessionCreate() {
             <button type="submit" className="primary" disabled={loading || customSumExceedsRange}>
               {loading ? 'Saving...' : 'Continue'}
             </button>
+            {' '}
+            <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
           </p>
         </form>
       )}
@@ -537,6 +553,8 @@ export default function SessionCreate() {
             <button type="submit" className="primary" disabled={loading}>
               {loading ? 'Saving...' : 'Continue'}
             </button>
+            {' '}
+            <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
           </p>
         </form>
       )}
@@ -544,17 +562,6 @@ export default function SessionCreate() {
       {step === 5 && (
         <form onSubmit={handleSaveOptions}>
           <p>Configure the options shown as buttons for the target column. One per line or comma-separated.</p>
-          <p>
-            Pre-fill options from column:{' '}
-            <select value={prefillColumn} onChange={(e) => setPrefillColumn(e.target.value)}>
-              <option value="">-- Select column --</option>
-              {headers.map((col) => (
-                <option key={col} value={col}>{col}</option>
-              ))}
-            </select>
-            {' '}
-            <button type="button" onClick={handlePreFill}>Pre-fill</button>
-          </p>
           <textarea
             value={targetOptions}
             onChange={(e) => setTargetOptions(e.target.value)}
@@ -562,9 +569,13 @@ export default function SessionCreate() {
             rows={8}
             style={{ width: '100%', marginBottom: '1rem' }}
           />
-          <button type="submit" className="primary" disabled={loading}>
-            {loading ? 'Saving...' : 'Finish and open session'}
-          </button>
+          <p style={{ marginTop: '1rem' }}>
+            <button type="submit" className="primary" disabled={loading}>
+              {loading ? 'Saving...' : 'Finish and open session'}
+            </button>
+            {' '}
+            <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
+          </p>
         </form>
       )}
     </div>

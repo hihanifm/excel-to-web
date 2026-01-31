@@ -405,7 +405,7 @@ export default function ChunkEditor() {
               <div key={row.rowIndex} className="card card-row" style={{ width: '100%' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <strong>Left (read-only)</strong>
+                    <strong>[Row {row.rowIndex + 1}] Left (read-only)</strong>
                     <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
                       {Object.entries(row.leftValues || {}).map(([k, v], idx, arr) => (
                         <li

@@ -212,6 +212,31 @@ router.get('/:id/compare', (req, res) => {
   res.json(stats);
 });
 
+// DELETE /api/sessions/:id/abandon — abandon draft/configured session (no PIN). For create-wizard cancel.
+router.delete('/:id/abandon', (req, res) => {
+  try {
+    const sessionId = Number(req.params.id);
+    const result = sessionService.deleteDraftSession(sessionId);
+    if (!result.ok) {
+      return res.status(result.error === 'Session not found' ? 404 : 400).json({ error: result.error });
+    }
+    if (result.filePath) {
+      try {
+        const relative = path.relative(uploadsDir, result.filePath);
+        if (!relative.startsWith('..') && !path.isAbsolute(relative)) {
+          unlinkSync(result.filePath);
+        }
+      } catch (_) {
+        // ignore file-not-found or other unlink errors
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'Abandon failed' });
+  }
+});
+
 // DELETE /api/sessions/:id — body: { pin }. Requires PIN if session has delete_pin set.
 router.delete('/:id', (req, res) => {
   try {
@@ -265,22 +290,13 @@ router.put('/:id/config', (req, res) => {
   res.json({ ok: true });
 });
 
-// GET /api/sessions/:id/columns/:columnName/unique
-router.get('/:id/columns/:columnName/unique', (req, res) => {
-  const sessionId = Number(req.params.id);
-  const columnName = req.params.columnName;
-  if (!sessionService.getSession(sessionId)) return res.status(404).json({ error: 'Session not found' });
-  const values = sessionService.getUniqueColumnValues(sessionId, columnName);
-  res.json({ values });
-});
-
-// PUT /api/sessions/:id/config/options — body: { targetOptions: string[], referenceColumn?: string }
+// PUT /api/sessions/:id/config/options — body: { targetOptions: string[] }
 router.put('/:id/config/options', (req, res) => {
   try {
     const sessionId = Number(req.params.id);
     if (!sessionService.getSession(sessionId)) return res.status(404).json({ error: 'Session not found' });
-    const { targetOptions, referenceColumn } = req.body;
-    sessionService.updateSessionConfigOptions(sessionId, { targetOptions: targetOptions || [], referenceColumn: referenceColumn || null });
+    const targetOptions = req.body.targetOptions || [];
+    sessionService.updateSessionConfigOptions(sessionId, { targetOptions });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);

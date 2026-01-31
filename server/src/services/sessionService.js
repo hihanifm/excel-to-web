@@ -33,6 +33,18 @@ export function deleteSession(sessionId, pin) {
   return { ok: true, filePath: session.file_path };
 }
 
+/** Delete a draft/configured session without PIN (for abandoning the create wizard). */
+export function deleteDraftSession(sessionId) {
+  const db = getDb(process.env.DB_PATH);
+  const session = db.prepare('SELECT id, file_path, status FROM sessions WHERE id = ?').get(sessionId);
+  if (!session) return { ok: false, error: 'Session not found' };
+  if (session.status !== 'draft' && session.status !== 'configured') {
+    return { ok: false, error: 'Can only abandon draft or configured sessions' };
+  }
+  db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+  return { ok: true, filePath: session.file_path };
+}
+
 export function getSession(id) {
   const db = getDb(process.env.DB_PATH);
   const row = db.prepare('SELECT * FROM sessions WHERE id = ?').get(id);
@@ -143,38 +155,11 @@ export function upsertSessionConfig(sessionId, { leftColumns, targetColumn, targ
   ).run(sessionId, JSON.stringify(leftColumns || []), targetColumn, targetColumnIsNew ? 1 : 0);
 }
 
-export function updateSessionConfigOptions(sessionId, { targetOptions, referenceColumn }) {
+export function updateSessionConfigOptions(sessionId, { targetOptions }) {
   const db = getDb(process.env.DB_PATH);
   db.prepare(
-    'UPDATE session_config SET target_options = ?, reference_column = ? WHERE session_id = ?'
-  ).run(JSON.stringify(targetOptions || []), referenceColumn || null, sessionId);
-  if (referenceColumn) {
-    prepopulateRowEditsFromReferenceColumn(sessionId);
-  }
-}
-
-/** Pre-populate row_edits with reference column values so target column is "as is" everywhere. */
-function prepopulateRowEditsFromReferenceColumn(sessionId) {
-  const config = getSessionConfig(sessionId);
-  if (!config?.reference_column) return;
-  const session = getSession(sessionId);
-  if (!session) return;
-  const headers = session.headers;
-  const refColIndex = headers.indexOf(config.reference_column);
-  if (refColIndex === -1) return;
-  const db = getDb(process.env.DB_PATH);
-  const rows = db.prepare(
-    'SELECT row_index, data FROM session_rows WHERE session_id = ? ORDER BY row_index'
-  ).all(sessionId);
-  const stmt = db.prepare(
-    'INSERT INTO row_edits (session_id, row_index, target_value, user_edited) VALUES (?, ?, ?, 0) ON CONFLICT(session_id, row_index) DO UPDATE SET target_value = excluded.target_value, user_edited = 0'
-  );
-  for (const row of rows) {
-    const data = JSON.parse(row.data);
-    const val = data[refColIndex];
-    const targetValue = val != null && val !== '' ? String(val) : '';
-    stmt.run(sessionId, row.row_index, targetValue);
-  }
+    'UPDATE session_config SET target_options = ?, reference_column = NULL WHERE session_id = ?'
+  ).run(JSON.stringify(targetOptions || []), sessionId);
 }
 
 export function listSessions() {
@@ -329,30 +314,6 @@ export function markRowsAsViewed(sessionId, chunkIndex, name, rowOffsets) {
     stmt.run(sessionId, rowIndex);
   }
   return { ok: true };
-}
-
-export function getUniqueColumnValues(sessionId, columnName) {
-  const session = getSession(sessionId);
-  if (!session) return [];
-  const headers = session.headers;
-  const colIndex = headers.indexOf(columnName);
-  if (colIndex === -1) return [];
-  const db = getDb(process.env.DB_PATH);
-  const rows = db.prepare(
-    'SELECT data FROM session_rows WHERE session_id = ? ORDER BY row_index'
-  ).all(sessionId);
-  const seen = new Set();
-  const values = [];
-  for (const row of rows) {
-    const data = JSON.parse(row.data);
-    const v = data[colIndex];
-    const normalized = v == null || v === '' ? null : String(v).trim();
-    if (normalized !== null && !seen.has(normalized)) {
-      seen.add(normalized);
-      values.push(normalized);
-    }
-  }
-  return values.sort();
 }
 
 export function getAllSessionRowsForExport(sessionId) {
