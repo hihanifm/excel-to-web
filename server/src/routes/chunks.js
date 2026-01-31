@@ -83,6 +83,8 @@ router.get('/:chunkIndex/row/:rowOffset', (req, res) => {
   if (rowOffset < 0 || rowOffset >= totalInChunk) {
     return res.status(400).json({ error: 'rowOffset out of range' });
   }
+  const chunk = sessionService.getChunk(sessionId, chunkIndex);
+  const labeledInChunk = chunk?.rowsEditedInChunk ?? 0;
 
   const startRow = range.startRow + rowOffset;
   const endRow = Math.min(startRow + limit, range.endRow);
@@ -121,6 +123,7 @@ router.get('/:chunkIndex/row/:rowOffset', (req, res) => {
     totalInChunk,
     chunkStartRow: range.startRow,
     chunkEndRow: range.endRow,
+    labeledInChunk,
     headers: session.headers,
     targetOptions: config.target_options || [],
   });
@@ -155,7 +158,9 @@ router.put('/:chunkIndex/row/:rowOffset', (req, res) => {
 
   const rowIndex = range.startRow + rowOffset;
   sessionService.saveRowEdit(sessionId, rowIndex, String(targetValue));
-  res.json({ ok: true, rowIndex, nextOffset: rowOffset + 1 });
+  const chunk = sessionService.getChunk(sessionId, chunkIndex);
+  const labeledInChunk = Number(chunk?.rowsEditedInChunk ?? 0);
+  res.json({ ok: true, rowIndex, nextOffset: rowOffset + 1, labeledInChunk });
 });
 
 export default router;

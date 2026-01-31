@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useBlocker } from 'react-router-dom';
 
-const STEPS = ['Upload', 'Choose sheet', 'Chunking', 'Choose columns', 'Configure options'];
+const STEPS = ['Upload', 'Choose sheet', 'Chunking', 'Choose columns', 'Configure label'];
 
 /** Parse response as JSON; throw with a clear message if HTML or error. */
 async function parseJsonResponse(r) {
@@ -31,9 +31,11 @@ export default function SessionCreate() {
   const [targetColumn, setTargetColumn] = useState('');
   const [targetColumnIsNew, setTargetColumnIsNew] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
-  const [targetOptions, setTargetOptions] = useState('');
+  const [targetOptions, setTargetOptions] = useState('Approved, In Progress, Rejected');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [successMessage, setSuccessMessage] = useState('');
   const [fileSource, setFileSource] = useState('upload');
   const [preloadedFiles, setPreloadedFiles] = useState([]);
   const [selectedPreloadedPath, setSelectedPreloadedPath] = useState('');
@@ -124,8 +126,9 @@ export default function SessionCreate() {
   const handleStep1Submit = (e) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
     if (!sessionName.trim()) {
-      setError('Enter a project name');
+      setFieldErrors({ sessionName: 'Enter a project name' });
       return;
     }
     if (fileSource === 'upload') {
@@ -135,7 +138,7 @@ export default function SessionCreate() {
       if (creatorName.trim()) fd.set('creator_name', creatorName.trim());
       if (deletePin.trim()) fd.set('delete_pin', deletePin.trim());
       if (!fd.get('file')) {
-        setError('Select a file');
+        setFieldErrors({ file: 'Select a file' });
         return;
       }
       setLoading(true);
@@ -146,7 +149,7 @@ export default function SessionCreate() {
         .finally(() => setLoading(false));
     } else {
       if (!selectedPreloadedPath) {
-        setError('Select a preloaded file');
+        setFieldErrors({ file: 'Select a preloaded file' });
         return;
       }
       setLoading(true);
@@ -170,8 +173,9 @@ export default function SessionCreate() {
   // Step 2: Choose sheet
   const handleChooseSheet = (e) => {
     e.preventDefault();
+    setFieldErrors({});
     if (!selectedSheet) {
-      setError('Select a sheet');
+      setFieldErrors({ sheet: 'Select a sheet' });
       return;
     }
     setLoading(true);
@@ -184,11 +188,13 @@ export default function SessionCreate() {
       .then(parseJsonResponse)
       .then((data) => {
         const rows = data.totalRows || 0;
-        setHeaders(data.headers || []);
+        const hdrs = data.headers || [];
+        setHeaders(hdrs);
         setTotalRows(rows);
         setChunkRangeStart(1);
         setChunkRangeEnd(rows);
-        setEqualSize(Math.max(1, Math.round(rows / 50) * 10));
+        // Default chunk size: aim for ~10 chunks, clamped 5–200
+        setEqualSize(Math.min(200, Math.max(5, Math.ceil(rows / 10))));
         setStep(3);
       })
       .catch((err) => setError(err.message || 'Failed'))
@@ -203,10 +209,11 @@ export default function SessionCreate() {
 
   const handleChunking = (e) => {
     e.preventDefault();
+    setFieldErrors({});
     const from = Number(chunkRangeStart) || 1;
     const to = Number(chunkRangeEnd) || totalRows;
     if (from < 1 || to > totalRows || from > to) {
-      setError(`Range must be from 1 to ${totalRows}, and from ≤ to (records)`);
+      setFieldErrors({ chunkRange: `Range must be from 1 to ${totalRows}, and from ≤ to (records)` });
       return;
     }
     const rangeLength = to - from + 1;
@@ -214,7 +221,7 @@ export default function SessionCreate() {
     if (sizeMode === 'equal') {
       const size = Math.min(Math.max(1, parseInt(equalSize, 10)), 10000);
       if (size > rangeLength) {
-        setError(`Chunk size ${size} exceeds range length ${rangeLength}`);
+        setFieldErrors({ chunkSize: `Chunk size ${size} exceeds range length ${rangeLength}` });
         return;
       }
       chunkSizes = [size];
@@ -224,18 +231,18 @@ export default function SessionCreate() {
         .map((s) => parseInt(s.trim(), 10))
         .filter((n) => !Number.isNaN(n) && n > 0);
       if (chunkSizes.length === 0) {
-        setError('Enter at least one chunk size (comma-separated numbers)');
+        setFieldErrors({ chunkSize: 'Enter at least one chunk size (comma-separated numbers)' });
         return;
       }
       for (const s of chunkSizes) {
         if (s > rangeLength) {
-          setError(`Chunk size ${s} exceeds range length ${rangeLength}`);
+          setFieldErrors({ chunkSize: `Chunk size ${s} exceeds range length ${rangeLength}` });
           return;
         }
       }
       const sum = chunkSizes.reduce((a, b) => a + b, 0);
       if (sum > rangeLength) {
-        setError(`Sum of chunk sizes (${sum}) exceeds chosen records (${rangeLength})`);
+        setFieldErrors({ chunkSize: `Sum of chunk sizes (${sum}) exceeds chosen records (${rangeLength})` });
         return;
       }
     }
@@ -251,7 +258,14 @@ export default function SessionCreate() {
       ),
     })
       .then(parseJsonResponse)
-      .then(() => setStep(4))
+      .then(() => {
+        setStep(4);
+        // Default columns: first for left panel, last for target (if 2+ columns)
+        if (headers.length > 0) {
+          setLeftColumns([headers[0]]);
+          setTargetColumn(headers.length >= 2 ? headers[headers.length - 1] : '');
+        }
+      })
       .catch((err) => setError(err.message || 'Failed'))
       .finally(() => setLoading(false));
   };
@@ -291,12 +305,15 @@ export default function SessionCreate() {
   // Step 4: Choose columns
   const handleSaveColumns = (e) => {
     e.preventDefault();
+    setFieldErrors({});
     const target = targetColumnIsNew ? newColumnName : targetColumn;
-    if (!target) {
-      setError('Select or enter target column');
+    const errs = {};
+    if (!target) errs.targetColumn = 'Select or enter label column';
+    if (leftColumns.length === 0) errs.leftColumns = 'Select at least one left column';
+    if (Object.keys(errs).length) {
+      setFieldErrors(errs);
       return;
     }
-    if (leftColumns.length === 0) setError('Select at least one left column');
     setLoading(true);
     setError('');
     fetch(`/api/sessions/${sessionId}/config`, {
@@ -320,15 +337,16 @@ export default function SessionCreate() {
     );
   };
 
-  // Step 5: Configure options
+  // Step 5: Configure label
   const handleSaveOptions = (e) => {
     e.preventDefault();
+    setFieldErrors({});
     const options = targetOptions
       .split(/[\n,]/)
       .map((s) => s.trim())
       .filter(Boolean);
     if (options.length === 0) {
-      setError('Enter at least one option');
+      setFieldErrors({ targetOptions: 'Enter at least one option' });
       return;
     }
     setLoading(true);
@@ -340,8 +358,9 @@ export default function SessionCreate() {
     })
       .then(parseJsonResponse)
       .then(() => {
+        setSuccessMessage('Project created');
         navigatingToSuccessRef.current = true;
-        navigate(`/sessions/${sessionId}`);
+        setTimeout(() => navigate(`/sessions/${sessionId}`), 1200);
       })
       .catch((err) => setError(err.message || 'Failed'))
       .finally(() => setLoading(false));
@@ -373,7 +392,7 @@ export default function SessionCreate() {
     <div className="card">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
         <h1 style={{ margin: 0 }}>Create project</h1>
-        <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
+        <button type="button" className="btn-nav" onClick={handleCancel} disabled={loading}>Cancel</button>
       </div>
       <div className="wizard-steps">
         {STEPS.map((label, i) => (
@@ -385,8 +404,24 @@ export default function SessionCreate() {
           </span>
         ))}
       </div>
+      <div className="wizard-progress" aria-label={`Step ${step} of ${STEPS.length}`}>
+        <span className="wizard-progress-text">Step {step} of {STEPS.length}</span>
+        <div className="wizard-progress-bar" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={STEPS.length}>
+          <div className="wizard-progress-fill" style={{ width: `${(step / STEPS.length) * 100}%` }} />
+        </div>
+      </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p className="form-field-error" style={{ marginBottom: '0.75rem' }}>{error}</p>}
+      {successMessage && <p className="form-success-message" role="status">{successMessage}</p>}
+      {loading && (
+        <p className="form-loading-message" aria-live="polite">
+          <span className="form-spinner" aria-hidden="true" />
+          {step === 1 && (fileSource === 'upload' ? 'Uploading…' : 'Loading…')}
+          {step === 2 && 'Parsing sheet…'}
+          {(step === 3 || step === 4) && 'Saving…'}
+          {step === 5 && 'Creating project…'}
+        </p>
+      )}
 
       {step === 1 && (
         <form onSubmit={handleStep1Submit} className="form-fields">
@@ -400,31 +435,41 @@ export default function SessionCreate() {
               onChange={(e) => setSessionName(e.target.value)}
               placeholder="e.g. Q1 review"
               required
+              autoFocus
+              aria-invalid={!!fieldErrors.sessionName}
+              aria-describedby={fieldErrors.sessionName ? 'session-name-error' : undefined}
             />
+            {fieldErrors.sessionName && <p id="session-name-error" className="form-field-error">{fieldErrors.sessionName}</p>}
           </div>
-          <div className="form-field">
-            <label htmlFor="creator-name">Creator name:</label>
-            <input
-              id="creator-name"
-              type="text"
-              className="form-input"
-              value={creatorName}
-              onChange={(e) => setCreatorName(e.target.value)}
-              placeholder="Your name (optional)"
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="delete-pin">Delete PIN:</label>
-            <input
-              id="delete-pin"
-              type="password"
-              className="form-input"
-              value={deletePin}
-              onChange={(e) => setDeletePin(e.target.value)}
-              placeholder="Required to delete this project later (optional)"
-              autoComplete="off"
-            />
-          </div>
+
+          <details className="form-advanced">
+            <summary className="form-advanced-summary">Advanced</summary>
+            <div className="form-advanced-content">
+              <div className="form-field">
+                <label htmlFor="creator-name">Creator name:</label>
+                <input
+                  id="creator-name"
+                  type="text"
+                  className="form-input"
+                  value={creatorName}
+                  onChange={(e) => setCreatorName(e.target.value)}
+                  placeholder="Your name (optional)"
+                />
+              </div>
+              <div className="form-field">
+                <label htmlFor="delete-pin">Delete PIN:</label>
+                <input
+                  id="delete-pin"
+                  type="password"
+                  className="form-input"
+                  value={deletePin}
+                  onChange={(e) => setDeletePin(e.target.value)}
+                  placeholder="Required to delete this project later (optional)"
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+          </details>
 
           <div className="form-section">
             <p className="form-section-title">Choose an Excel file to use.</p>
@@ -454,33 +499,39 @@ export default function SessionCreate() {
             {fileSource === 'upload' && (
               <div className="form-field">
                 <label className="form-field-spacer" />
-                <div className="form-input">
-                  <input type="file" name="file" accept=".xlsx,.xls" required />
+                <div className="form-input" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <input type="file" name="file" accept=".xlsx,.xls" required aria-invalid={!!fieldErrors.file} aria-describedby={fieldErrors.file ? 'file-error' : undefined} />
+                  {fieldErrors.file && <p id="file-error" className="form-field-error">{fieldErrors.file}</p>}
                 </div>
               </div>
             )}
             {fileSource === 'preloaded' && (
               <div className="form-field">
                 <label htmlFor="preloaded-file">Preloaded file:</label>
-                <div className="form-input" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <select
-                    id="preloaded-file"
-                    value={selectedPreloadedPath}
-                    onChange={(e) => setSelectedPreloadedPath(e.target.value)}
-                    style={{ flex: '1 1 12rem', minWidth: '12rem' }}
-                  >
-                    <option value="">-- Select file --</option>
-                    {preloadedFiles.map((f) => (
-                      <option key={f.path} value={f.path}>{f.name}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={fetchPreloadedFiles}
-                    disabled={refreshingPreloaded}
-                  >
-                    {refreshingPreloaded ? 'Refreshing...' : 'Refresh'}
-                  </button>
+                <div className="form-input" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <select
+                      id="preloaded-file"
+                      value={selectedPreloadedPath}
+                      onChange={(e) => setSelectedPreloadedPath(e.target.value)}
+                      style={{ flex: '1 1 12rem', minWidth: '12rem' }}
+                      aria-invalid={!!fieldErrors.file}
+                      aria-describedby={fieldErrors.file ? 'file-error' : undefined}
+                    >
+                      <option value="">-- Select file --</option>
+                      {preloadedFiles.map((f) => (
+                        <option key={f.path} value={f.path}>{f.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={fetchPreloadedFiles}
+                      disabled={refreshingPreloaded}
+                    >
+                      {refreshingPreloaded ? 'Refreshing...' : 'Refresh'}
+                    </button>
+                  </div>
+                  {fieldErrors.file && <p id="file-error" className="form-field-error">{fieldErrors.file}</p>}
                   {preloadedFiles.length === 0 && !refreshingPreloaded && (
                     <span style={{ color: '#64748b', fontSize: '0.9rem' }}>No preloaded files</span>
                   )}
@@ -493,7 +544,8 @@ export default function SessionCreate() {
             <span className="form-field-spacer" />
             <div className="form-actions-buttons">
               <button type="submit" className="primary" disabled={loading || (fileSource === 'preloaded' && refreshingPreloaded)}>
-                {loading ? (fileSource === 'upload' ? 'Uploading...' : 'Loading...') : (fileSource === 'upload' ? 'Upload' : 'Continue')}
+                {loading && <span className="form-spinner" aria-hidden="true" />}
+                {loading ? (fileSource === 'upload' ? 'Uploading…' : 'Loading…') : (fileSource === 'upload' ? 'Upload' : 'Continue')}
               </button>
             </div>
           </div>
@@ -510,18 +562,23 @@ export default function SessionCreate() {
               className="form-input"
               value={selectedSheet}
               onChange={(e) => setSelectedSheet(e.target.value)}
+              autoFocus
+              aria-invalid={!!fieldErrors.sheet}
+              aria-describedby={fieldErrors.sheet ? 'sheet-error' : undefined}
             >
               <option value="">-- Select sheet --</option>
               {sheetNames.map((name) => (
                 <option key={name} value={name}>{name}</option>
               ))}
             </select>
+            {fieldErrors.sheet && <p id="sheet-error" className="form-field-error">{fieldErrors.sheet}</p>}
           </div>
           <div className="form-field form-actions">
             <span className="form-field-spacer" />
             <div className="form-actions-buttons">
               <button type="submit" className="primary" disabled={loading}>
-                {loading ? 'Loading...' : 'Continue'}
+                {loading && <span className="form-spinner" aria-hidden="true" />}
+                {loading ? 'Loading…' : 'Continue'}
               </button>
             </div>
           </div>
@@ -530,7 +587,13 @@ export default function SessionCreate() {
 
       {step === 3 && (
         <form onSubmit={handleChunking} className="form-fields">
-          <p className="form-info">Sheet has <strong>{totalRows}</strong> records.</p>
+          <p className="form-info">
+            Sheet has <strong>{totalRows}</strong> records.
+            <span className="form-field-help" style={{ marginLeft: '0.35rem' }}>
+              <span className="form-field-help-icon" tabIndex={0} aria-label="Help">ⓘ</span>
+              <span className="form-field-help-text" role="tooltip">Use "From" and "To" to include only part of the sheet. Records outside this range are skipped.</span>
+            </span>
+          </p>
           <div className="form-field form-field-inline">
             <label htmlFor="from-row">From record:</label>
             <input
@@ -541,6 +604,8 @@ export default function SessionCreate() {
               value={chunkRangeStart}
               onChange={(e) => setChunkRangeStart(e.target.value)}
               className="form-input-narrow"
+              autoFocus
+              aria-invalid={!!fieldErrors.chunkRange}
             />
             <label htmlFor="to-row">To record:</label>
             <input
@@ -551,18 +616,30 @@ export default function SessionCreate() {
               value={chunkRangeEnd}
               onChange={(e) => setChunkRangeEnd(e.target.value)}
               className="form-input-narrow"
+              aria-invalid={!!fieldErrors.chunkRange}
             />
+            {fieldErrors.chunkRange && <p id="chunk-range-error" className="form-field-error" style={{ flex: '1 1 100%', marginTop: '0.25rem' }}>{fieldErrors.chunkRange}</p>}
           </div>
           {rangeLength > 0 && (
             <p className="form-info"><strong>{rangeLength}</strong> records chosen.</p>
           )}
 
           <div className="form-section">
-            <p className="form-section-title">Size:</p>
+            <p className="form-section-title">
+              Size:
+              <span className="form-field-help">
+                <span className="form-field-help-icon" tabIndex={0} aria-label="Help">ⓘ</span>
+                <span className="form-field-help-text" role="tooltip">Records are split into chunks of this size. Each chunk is shown as one review unit.</span>
+              </span>
+            </p>
             <div className="form-field form-field-radio">
               <label className="form-radio-label">
                 <input type="radio" checked={sizeMode === 'equal'} onChange={() => setSizeMode('equal')} />
                 Equal: chunk size
+                <span className="form-field-help">
+                  <span className="form-field-help-icon" tabIndex={0} aria-label="Help">ⓘ</span>
+                  <span className="form-field-help-text" role="tooltip">Every chunk has the same number of records.</span>
+                </span>
               </label>
               <div className="form-input">
                 <input
@@ -572,6 +649,8 @@ export default function SessionCreate() {
                   value={equalSize}
                   onChange={(e) => setEqualSize(e.target.value)}
                   className="form-input-narrow"
+                  aria-invalid={!!fieldErrors.chunkSize}
+                  aria-describedby={fieldErrors.chunkSize ? 'chunk-size-error' : undefined}
                 />
               </div>
             </div>
@@ -579,16 +658,23 @@ export default function SessionCreate() {
               <label className="form-radio-label">
                 <input type="radio" checked={sizeMode === 'custom'} onChange={() => setSizeMode('custom')} />
                 Custom (comma-separated):
+                <span className="form-field-help">
+                  <span className="form-field-help-icon" tabIndex={0} aria-label="Help">ⓘ</span>
+                  <span className="form-field-help-text" role="tooltip">Specify each chunk size in order, e.g. 10, 20, 15.</span>
+                </span>
               </label>
               <div className="form-input">
                 <input
                   type="text"
                   value={chunkSizesText}
                   onChange={(e) => setChunkSizesText(e.target.value)}
-                  placeholder="150, 340, 120, 500"
+                  placeholder="e.g. 10, 20, 15, 25"
+                  aria-invalid={!!fieldErrors.chunkSize}
+                  aria-describedby={fieldErrors.chunkSize ? 'chunk-size-error' : undefined}
                 />
               </div>
             </div>
+            {fieldErrors.chunkSize && <p id="chunk-size-error" className="form-field-error" style={{ marginTop: '0.25rem' }}>{fieldErrors.chunkSize}</p>}
           </div>
 
           {customSumExceedsRange && (
@@ -608,7 +694,8 @@ export default function SessionCreate() {
             <span className="form-field-spacer" />
             <div className="form-actions-buttons">
               <button type="submit" className="primary" disabled={loading || customSumExceedsRange}>
-                {loading ? 'Saving...' : 'Continue'}
+                {loading && <span className="form-spinner" aria-hidden="true" />}
+                {loading ? 'Saving…' : 'Continue'}
               </button>
             </div>
           </div>
@@ -617,26 +704,41 @@ export default function SessionCreate() {
 
       {step === 4 && (
         <form onSubmit={handleSaveColumns} className="form-fields">
-          <p className="form-info">Select columns for the left panel (read-only) and one target column.</p>
+          <p className="form-info">Select columns for the left panel (read-only) and one label column.</p>
 
           <div className="form-section">
-            <p className="form-section-title">Left panel columns (select one or more):</p>
+            <p className="form-section-title">
+              Left panel columns (select one or more):
+              <span className="form-field-help">
+                <span className="form-field-help-icon" tabIndex={0} aria-label="Help">ⓘ</span>
+                <span className="form-field-help-text" role="tooltip">Columns shown read-only on the left when reviewing. Select the ones you need for context.</span>
+              </span>
+            </p>
             <div className="form-checkbox-grid">
-              {headers.map((col) => (
+              {headers.map((col, idx) => (
                 <label key={col} className="form-checkbox-item">
                   <input
                     type="checkbox"
                     checked={leftColumns.includes(col)}
                     onChange={() => toggleLeftColumn(col)}
+                    autoFocus={idx === 0}
+                    aria-invalid={!!fieldErrors.leftColumns}
                   />
                   <span>{col}</span>
                 </label>
               ))}
             </div>
+            {fieldErrors.leftColumns && <p className="form-field-error">{fieldErrors.leftColumns}</p>}
           </div>
 
           <div className="form-section">
-            <p className="form-section-title">Target column (one):</p>
+            <p className="form-section-title">
+              Label column (one):
+              <span className="form-field-help">
+                <span className="form-field-help-icon" tabIndex={0} aria-label="Help">ⓘ</span>
+                <span className="form-field-help-text" role="tooltip">The column you'll update with status or choices. The options you configure in the next step become buttons for each record.</span>
+              </span>
+            </p>
             <div className="form-field form-field-radio">
               <label className="form-radio-label">
                 <input
@@ -652,12 +754,15 @@ export default function SessionCreate() {
                   onChange={(e) => setTargetColumn(e.target.value)}
                   disabled={targetColumnIsNew}
                   style={{ width: '100%', maxWidth: '14rem' }}
+                  aria-invalid={!!fieldErrors.targetColumn}
+                  aria-describedby={fieldErrors.targetColumn ? 'target-column-error' : undefined}
                 >
                   <option value="">-- Select --</option>
                   {headers.map((col) => (
                     <option key={col} value={col}>{col}</option>
                   ))}
                 </select>
+                {fieldErrors.targetColumn && <p id="target-column-error" className="form-field-error">{fieldErrors.targetColumn}</p>}
               </div>
             </div>
             <div className="form-field form-field-radio">
@@ -677,6 +782,7 @@ export default function SessionCreate() {
                   placeholder="Column name"
                   disabled={!targetColumnIsNew}
                   style={{ width: '100%', maxWidth: '14rem' }}
+                  aria-invalid={!!fieldErrors.targetColumn}
                 />
               </div>
             </div>
@@ -686,7 +792,8 @@ export default function SessionCreate() {
             <span className="form-field-spacer" />
             <div className="form-actions-buttons">
               <button type="submit" className="primary" disabled={loading}>
-                {loading ? 'Saving...' : 'Continue'}
+                {loading && <span className="form-spinner" aria-hidden="true" />}
+                {loading ? 'Saving…' : 'Continue'}
               </button>
             </div>
           </div>
@@ -695,19 +802,24 @@ export default function SessionCreate() {
 
       {step === 5 && (
         <form onSubmit={handleSaveOptions} className="form-fields">
-          <p>Configure the options shown as buttons for the target column. One per line or comma-separated.</p>
+          <p>Configure the options shown as buttons for the label column. One per line or comma-separated. Example: Approved, In Progress, Rejected</p>
           <textarea
             value={targetOptions}
             onChange={(e) => setTargetOptions(e.target.value)}
             placeholder="Option 1&#10;Option 2&#10;Option 3"
             rows={8}
             style={{ width: '100%', marginBottom: '1rem' }}
+            autoFocus
+            aria-invalid={!!fieldErrors.targetOptions}
+            aria-describedby={fieldErrors.targetOptions ? 'target-options-error' : undefined}
           />
+          {fieldErrors.targetOptions && <p id="target-options-error" className="form-field-error" style={{ marginTop: '-0.5rem', marginBottom: '1rem' }}>{fieldErrors.targetOptions}</p>}
           <div className="form-field form-actions">
             <span className="form-field-spacer" />
             <div className="form-actions-buttons">
               <button type="submit" className="primary" disabled={loading}>
-                {loading ? 'Saving...' : 'Finish and open project'}
+                {loading && <span className="form-spinner" aria-hidden="true" />}
+                {loading ? 'Creating…' : 'Finish and open project'}
               </button>
             </div>
           </div>

@@ -220,6 +220,13 @@ button.btn-nav:active:not(:disabled) {
   background: #99f6e4;
   box-shadow: inset 0 1px 2px rgba(13, 148, 136, 0.2);
 }
+button.btn-nav:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #64748b;
+}
 
 input, select, textarea {
   padding: 0.5rem 0.75rem;
@@ -272,10 +279,54 @@ input:focus, select:focus, textarea:focus {
 }
 
 h1, h2 { margin-top: 0; }
-.wizard-steps { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
-.wizard-steps span { padding: 0.3rem 0.6rem; border-radius: 8px; background: #e2e8f0; color: #475569; font-weight: 500; }
-.wizard-steps span.active { background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%); color: #fff; }
-.wizard-steps span.done { background: linear-gradient(180deg, #059669 0%, #047857 100%); color: #fff; }
+
+/* Wizard steps: consistent pill shape, clear states, subtle transitions */
+.wizard-steps {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.wizard-steps span {
+  padding: 0.4rem 0.875rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: #f1f5f9;
+  color: #64748b;
+  transition: background 0.2s, color 0.2s;
+}
+.wizard-steps span.active {
+  background: #0d9488;
+  color: #fff;
+}
+.wizard-steps span.done {
+  background: #99f6e4;
+  color: #0f766e;
+}
+
+/* Wizard progress: step label + bar */
+.wizard-progress {
+  margin-bottom: 1.5rem;
+}
+.wizard-progress-text {
+  display: block;
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 0.35rem;
+}
+.wizard-progress-bar {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.wizard-progress-fill {
+  height: 100%;
+  background: #0d9488;
+  border-radius: 9999px;
+  transition: width 0.25s ease-out;
+}
 
 /* Form layout: consistent label + input alignment */
 .form-fields {
@@ -362,12 +413,130 @@ h1, h2 { margin-top: 0; }
   font-weight: 500;
   color: #334155;
 }
+.form-section-title .form-field-help {
+  margin-left: 0.25rem;
+}
+
+/* Inline help: info icon + tooltip */
+.form-field-help {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.form-field-help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: #cbd5e1;
+  color: #475569;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: help;
+}
+.form-field-help-icon:hover {
+  background: #94a3b8;
+  color: #fff;
+}
+.form-field-help-text {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translate(-50%, -0.35rem);
+  padding: 0.5rem 0.65rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  white-space: normal;
+  min-width: 14rem;
+  max-width: 28rem;
+  width: max-content;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+.form-field-help:hover .form-field-help-text,
+.form-field-help:focus-within .form-field-help-text {
+  opacity: 1;
+}
+/* Arrow pointing down at the icon */
+.form-field-help-text::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #e2e8f0;
+}
+.form-field-help-text::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  margin-top: -1px;
+  border: 4px solid transparent;
+  border-top-color: #f8fafc;
+}
+
 .form-section {
   margin-top: 1.25rem;
 }
 .form-section .form-field {
   margin-top: 0.75rem;
 }
+
+/* Collapsible Advanced section */
+.form-advanced {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.form-advanced-summary {
+  padding: 0.6rem 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  background: #f8fafc;
+}
+.form-advanced-summary::-webkit-details-marker {
+  display: none;
+}
+.form-advanced-summary::before {
+  content: '▶';
+  display: inline-block;
+  margin-right: 0.5rem;
+  font-size: 0.65rem;
+  transition: transform 0.2s;
+}
+.form-advanced[open] .form-advanced-summary::before {
+  transform: rotate(90deg);
+}
+.form-advanced-summary:hover {
+  color: #334155;
+  background: #f1f5f9;
+}
+.form-advanced-content {
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .form-radio-group {
   display: flex;
   align-items: center;
@@ -393,6 +562,52 @@ h1, h2 { margin-top: 0; }
 }
 .form-actions-buttons .primary {
   min-width: 10rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.form-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: form-spinner 0.6s linear infinite;
+}
+@keyframes form-spinner {
+  to { transform: rotate(360deg); }
+}
+.form-loading-message {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0 0 0.75rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.form-loading-message .form-spinner {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-color: rgba(13, 148, 136, 0.25);
+  border-top-color: #0d9488;
+  flex-shrink: 0;
+}
+.form-success-message {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #0f766e;
+  background: #ccfbf1;
+  border: 1px solid #99f6e4;
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.875rem;
+  margin-bottom: 1rem;
+}
+.form-field-error {
+  font-size: 0.8125rem;
+  color: #dc2626;
+  margin: 0.25rem 0 0 0;
 }
 .form-info {
   margin: 0;
@@ -593,6 +808,29 @@ table.data-table tbody tr.session-row-clickable:hover .session-name {
   align-items: center;
   gap: 0.35rem;
 }
+.chunk-editor-progress {
+  flex: 1 1 100%;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+.chunk-editor-progress-text {
+  display: block;
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin-bottom: 0.35rem;
+}
+.chunk-editor-progress-bar {
+  height: 5px;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.chunk-editor-progress-fill {
+  height: 100%;
+  background: #0d9488;
+  border-radius: 9999px;
+  transition: width 0.25s ease-out;
+}
 .chunk-editor-toolbar {
   display: flex;
   align-items: center;
@@ -676,14 +914,65 @@ table.data-table tbody tr.session-row-clickable:hover .session-name {
 .chunk-editor-labels-actions button {
   min-width: 5rem;
 }
+.chunk-editor-nav-group {
+  margin-top: 1.25rem;
+}
 .chunk-editor-nav-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  gap: 0.75rem;
   flex-wrap: wrap;
-  margin-top: 1.25rem;
+  margin-top: 0;
 }
-.chunk-editor-nav-row .btn-nav { flex: 1; min-width: 7rem; }
+.chunk-editor-nav-group .chunk-editor-nav-row:first-child {
+  margin-top: 0;
+}
+.chunk-editor-nav-row .btn-nav {
+  flex: 0 1 auto;
+  min-width: 7rem;
+  max-width: 10rem;
+}
+.chunk-editor-nav-row .chunk-editor-nav-prev-next {
+  width: 8.5rem;
+  flex: 0 0 auto;
+}
+.chunk-editor-nav-row .chunk-editor-nav-last-updated {
+  width: 9.5rem;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 9.5rem;
+  padding: 0.55rem 1.1rem;
+  background: linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 100%);
+  border: 1px solid #5eead4;
+  color: #0f766e;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chunk-editor-nav-row .chunk-editor-nav-last-updated:hover {
+  background: linear-gradient(180deg, #ccfbf1 0%, #99f6e4 100%);
+  border-color: #2dd4bf;
+  color: #115e59;
+  box-shadow: 0 1px 3px rgba(13, 148, 136, 0.2);
+}
+.chunk-editor-nav-row .chunk-editor-nav-last-updated:active {
+  background: #99f6e4;
+  box-shadow: inset 0 1px 2px rgba(13, 148, 136, 0.2);
+}
+.chunk-editor-row-nav-inline {
+  margin: 0;
+  flex: 0 0 auto;
+  justify-content: flex-start;
+}
+.chunk-editor-shortcut-hint {
+  flex: 1 1 100%;
+  width: 100%;
+  margin: 0.4rem 0 0 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
 .chunk-editor-settings-bottom {
   margin-top: 1.5rem;
   padding-top: 1rem;
