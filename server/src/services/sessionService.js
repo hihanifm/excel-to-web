@@ -59,7 +59,7 @@ export function updateSessionSheet(id, sheetName, headers, totalRows, options = 
   const db = getDb(process.env.DB_PATH);
   const status = options.compareMode ? 'draft' : 'configured';
   db.prepare(
-    'UPDATE sessions SET sheet_name = ?, headers = ?, total_rows = ?, status = ? WHERE id = ?'
+    "UPDATE sessions SET sheet_name = ?, headers = ?, total_rows = ?, status = ?, updated_at = datetime('now') WHERE id = ?"
   ).run(sheetName, JSON.stringify(headers), totalRows, status, id);
 }
 
@@ -72,7 +72,7 @@ export function updateSessionStatus(sessionId, newStatus) {
   const db = getDb(process.env.DB_PATH);
   const session = db.prepare('SELECT id, status FROM sessions WHERE id = ?').get(sessionId);
   if (!session) return { ok: false, error: 'Session not found' };
-  db.prepare('UPDATE sessions SET status = ? WHERE id = ?').run(newStatus, sessionId);
+  db.prepare("UPDATE sessions SET status = ?, updated_at = datetime('now') WHERE id = ?").run(newStatus, sessionId);
   return { ok: true };
 }
 
@@ -139,7 +139,7 @@ export function setChunking(sessionId, totalRows, options = {}) {
   }
   const db = getDb(process.env.DB_PATH);
   db.prepare(
-    'UPDATE sessions SET chunk_range_start = ?, chunk_range_end = ?, chunk_sizes = ? WHERE id = ?'
+    "UPDATE sessions SET chunk_range_start = ?, chunk_range_end = ?, chunk_sizes = ?, updated_at = datetime('now') WHERE id = ?"
   ).run(start, end, JSON.stringify(chunkSizes), sessionId);
   db.prepare('DELETE FROM chunks WHERE session_id = ?').run(sessionId);
   createChunks(sessionId, totalRows, { rangeStart: start, rangeEnd: end, chunkSizes });
@@ -178,9 +178,40 @@ export function updateSessionConfigOptions(sessionId, { targetOptions }) {
 export function listSessions() {
   const db = getDb(process.env.DB_PATH);
   const rows = db.prepare(
-    'SELECT id, name, creator_name, file_path, sheet_name, total_rows, chunk_range_start, chunk_range_end, chunk_sizes, created_at, status FROM sessions ORDER BY created_at DESC'
+    'SELECT id, name, creator_name, file_path, sheet_name, total_rows, chunk_range_start, chunk_range_end, chunk_sizes, created_at, updated_at, status FROM sessions ORDER BY created_at DESC'
   ).all();
-  return rows.map((r) => ({ ...r, hasConfig: !!getSessionConfig(r.id) }));
+  const completionBySession = db.prepare(
+    `SELECT session_id, COUNT(*) AS total, SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed FROM chunks GROUP BY session_id`
+  ).all();
+  const rowsEditedBySession = db.prepare(
+    `SELECT session_id, COUNT(*) AS c FROM row_edits WHERE user_edited = 1 GROUP BY session_id`
+  ).all();
+  const completionMap = Object.fromEntries(
+    completionBySession.map((r) => [
+      Number(r.session_id),
+      r.total ? Math.round((Number(r.completed) / Number(r.total)) * 100) : 0,
+    ])
+  );
+  const chunksMap = Object.fromEntries(
+    completionBySession.map((r) => [Number(r.session_id), { total: Number(r.total), completed: Number(r.completed) }])
+  );
+  const rowsEditedMap = Object.fromEntries(rowsEditedBySession.map((r) => [Number(r.session_id), Number(r.c)]));
+  return rows.map((r) => {
+    const sid = Number(r.id);
+    const chunks = chunksMap[sid];
+    const totalChunks = chunks?.total ?? 0;
+    const rowsEdited = rowsEditedMap[sid] ?? 0;
+    const totalRows = r.total_rows != null ? Number(r.total_rows) : 0;
+    const recordsCompletionPct = totalRows ? Math.round((rowsEdited / totalRows) * 100) : 0;
+    return {
+      ...r,
+      hasConfig: !!getSessionConfig(r.id),
+      completionPct: completionMap[sid] ?? 0,
+      totalChunks,
+      rowsEdited,
+      recordsCompletionPct,
+    };
+  });
 }
 
 export function getSessionStats(sessionId) {

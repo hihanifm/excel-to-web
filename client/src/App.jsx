@@ -23,8 +23,8 @@ export default function App() {
         <div className="app-header-inner">
           <Link to="/" className="app-logo">Excel Data Labeller</Link>
           <nav className="app-nav">
-            <Link to="/" className={isActive('/') && !location.pathname.startsWith('/create') && !location.pathname.startsWith('/compare') ? 'active' : ''}>Sessions</Link>
-            <Link to="/compare" className={isActive('/compare') ? 'active' : ''}>Compare</Link>
+            <Link to="/" className={isActive('/') && !location.pathname.startsWith('/create') && !location.pathname.startsWith('/compare') ? 'active' : ''}>PROJECTS</Link>
+            <Link to="/compare" className={isActive('/compare') ? 'active' : ''}>COMPARE</Link>
           </nav>
         </div>
       </header>

@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   chunk_range_end INTEGER,
   chunk_sizes TEXT NOT NULL DEFAULT '[100]',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   status TEXT NOT NULL DEFAULT 'draft',
   delete_pin TEXT
 );

@@ -1,6 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 
+function formatDate(isoStr) {
+  if (!isoStr) return '–';
+  const d = new Date(isoStr);
+  if (Number.isNaN(d.getTime())) return '–';
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = d.toDateString() === yesterday.toDateString();
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (isToday) return `Today, ${time}`;
+  if (isYesterday) return `Yesterday, ${time}`;
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + `, ${time}`;
+}
+
 export default function SessionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -136,23 +151,18 @@ export default function SessionDetail() {
   };
 
   if (loading && !session) return <div className="card">Loading...</div>;
-  if (!session) return <div className="card">Session not found.</div>;
+  if (!session) return <div className="card">Project not found.</div>;
 
   return (
     <div className="card">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <h1 style={{ margin: 0 }}>Session {id}{session.name ? ` – ${session.name}` : ''}</h1>
-            <span className={`status-badge status-${session.status}`}>
-              {session.status === 'configured' ? 'Active' : session.status.charAt(0).toUpperCase() + session.status.slice(1)}
-            </span>
-          </div>
-          <p style={{ margin: '0.25rem 0 0' }}>
-            <Link to="/">← Sessions</Link>
-          </p>
+      <header className="chunk-editor-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <h1 style={{ margin: 0 }}>{session.name?.trim() || `Project ${id}`}</h1>
+          <span className={`status-badge status-${session.status}`}>
+            {session.status === 'configured' ? 'Active' : session.status.charAt(0).toUpperCase() + session.status.slice(1)}
+          </span>
         </div>
-        <div className="form-actions-buttons">
+        <div className="form-actions-buttons" style={{ margin: 0 }}>
           {session.status === 'configured' && (
             <>
               <button
@@ -194,7 +204,7 @@ export default function SessionDetail() {
             Delete
           </button>
         </div>
-      </div>
+      </header>
       {exportError && <p style={{ color: '#dc2626', margin: '0.5rem 0 0' }}>{exportError}</p>}
 
       {stats && (
@@ -207,6 +217,11 @@ export default function SessionDetail() {
             {session.creator_name && (
               <p>Creator: <strong>{session.creator_name}</strong></p>
             )}
+            <p>
+              Created: <strong>{formatDate(session.created_at)}</strong>
+              {' · '}
+              Updated: <strong>{formatDate(session.updated_at)}</strong>
+            </p>
             <p>
               Total chunks: <strong>{stats.totalChunks}</strong>
               {' · '}
@@ -233,8 +248,8 @@ export default function SessionDetail() {
         <div className="card card-warning">
           {deleteStep === 'confirm' ? (
             <>
-              <h3>Delete session?</h3>
-              <p>Are you sure you want to delete this session? This cannot be undone.</p>
+              <h3>Delete project?</h3>
+              <p>Are you sure you want to delete this project? This cannot be undone.</p>
               <div className="form-actions-buttons" style={{ marginTop: '0.75rem' }}>
                 <button type="button" className="btn-danger" onClick={() => { setDeleteStep('pin'); setDeleteError(''); }}>
                   Yes, continue
@@ -246,8 +261,8 @@ export default function SessionDetail() {
             </>
           ) : (
             <>
-              <h3>Delete session</h3>
-              <p>PIN is required to delete. Enter the PIN you set when creating this session, or the default PIN if you did not set one.</p>
+              <h3>Delete project</h3>
+              <p>PIN is required to delete. Enter the PIN you set when creating this project, or the default PIN if you did not set one.</p>
               {deleteError && <p style={{ color: '#dc2626', margin: '0.5rem 0 0' }}>{deleteError}</p>}
               <div className="form-field" style={{ marginTop: '0.75rem', maxWidth: '20rem' }}>
                 <label htmlFor="delete-pin" style={{ flex: '0 0 3rem' }}>PIN:</label>

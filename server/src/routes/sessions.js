@@ -27,8 +27,9 @@ const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } }); // 5
 
 const router = Router();
 
-// GET /api/sessions — list sessions
+// GET /api/sessions — list sessions (no cache so list reflects current completion)
 router.get('/', (req, res) => {
+  res.set('Cache-Control', 'no-store');
   const list = sessionService.listSessions();
   res.json(list);
 });

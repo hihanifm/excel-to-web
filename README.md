@@ -99,10 +99,10 @@ docker compose down   # stop; data kept in volume excel-data
 
 ## Preloaded files
 
-You can place `.xlsx` or `.xls` files in the preloaded folder (default `~/.excel_data_labelling/files/`) and choose them when creating a session or comparing columns, without uploading. Override the folder with `PRELOADED_FILES_DIR` if needed.
+You can place `.xlsx` or `.xls` files in the preloaded folder (default `~/.excel_data_labelling/files/`) and choose them when creating a project or comparing columns, without uploading. Override the folder with `PRELOADED_FILES_DIR` if needed.
 
 ## Data
 
 - **DB:** SQLite at `server/data/excel-app.db` (create `server/data` if needed)
 - **Uploads:** Stored under `server/data/uploads/`
-- Back up the `.db` file regularly for long-lived sessions.
+- Back up the `.db` file regularly for long-lived projects.

@@ -66,7 +66,7 @@ export default function SessionCreate() {
     if (handledBlockRef.current) return;
     handledBlockRef.current = true;
     const message = sessionId
-      ? 'Discard and delete this draft session?'
+      ? 'Discard and delete this draft project?'
       : 'Leave? Your progress will be lost.';
     const ok = window.confirm(message);
     if (ok) {
@@ -124,10 +124,14 @@ export default function SessionCreate() {
   const handleStep1Submit = (e) => {
     e.preventDefault();
     setError('');
+    if (!sessionName.trim()) {
+      setError('Enter a project name');
+      return;
+    }
     if (fileSource === 'upload') {
       const form = e.target;
       const fd = new FormData(form);
-      if (sessionName.trim()) fd.set('name', sessionName.trim());
+      fd.set('name', sessionName.trim());
       if (creatorName.trim()) fd.set('creator_name', creatorName.trim());
       if (deletePin.trim()) fd.set('delete_pin', deletePin.trim());
       if (!fd.get('file')) {
@@ -151,7 +155,7 @@ export default function SessionCreate() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           preloadedPath: selectedPreloadedPath,
-          name: sessionName.trim() || undefined,
+          name: sessionName.trim(),
           creator_name: creatorName.trim() || undefined,
           delete_pin: deletePin.trim() || undefined,
         }),
@@ -348,7 +352,7 @@ export default function SessionCreate() {
       navigate('/');
       return;
     }
-    if (!window.confirm('Discard and delete this draft session?')) return;
+    if (!window.confirm('Discard and delete this draft project?')) return;
     leaveViaCancelRef.current = true;
     setLoading(true);
     setError('');
@@ -367,7 +371,10 @@ export default function SessionCreate() {
 
   return (
     <div className="card">
-      <h1>Create session</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <h1 style={{ margin: 0 }}>Create project</h1>
+        <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
+      </div>
       <div className="wizard-steps">
         {STEPS.map((label, i) => (
           <span
@@ -384,7 +391,7 @@ export default function SessionCreate() {
       {step === 1 && (
         <form onSubmit={handleStep1Submit} className="form-fields">
           <div className="form-field">
-            <label htmlFor="session-name">Session name (optional):</label>
+            <label htmlFor="session-name">Project name:</label>
             <input
               id="session-name"
               type="text"
@@ -392,28 +399,29 @@ export default function SessionCreate() {
               value={sessionName}
               onChange={(e) => setSessionName(e.target.value)}
               placeholder="e.g. Q1 review"
+              required
             />
           </div>
           <div className="form-field">
-            <label htmlFor="creator-name">Creator name (optional):</label>
+            <label htmlFor="creator-name">Creator name:</label>
             <input
               id="creator-name"
               type="text"
               className="form-input"
               value={creatorName}
               onChange={(e) => setCreatorName(e.target.value)}
-              placeholder="Your name"
+              placeholder="Your name (optional)"
             />
           </div>
           <div className="form-field">
-            <label htmlFor="delete-pin">Delete PIN (optional):</label>
+            <label htmlFor="delete-pin">Delete PIN:</label>
             <input
               id="delete-pin"
               type="password"
               className="form-input"
               value={deletePin}
               onChange={(e) => setDeletePin(e.target.value)}
-              placeholder="Required to delete this session later"
+              placeholder="Required to delete this project later (optional)"
               autoComplete="off"
             />
           </div>
@@ -487,7 +495,6 @@ export default function SessionCreate() {
               <button type="submit" className="primary" disabled={loading || (fileSource === 'preloaded' && refreshingPreloaded)}>
                 {loading ? (fileSource === 'upload' ? 'Uploading...' : 'Loading...') : (fileSource === 'upload' ? 'Upload' : 'Continue')}
               </button>
-              <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
             </div>
           </div>
         </form>
@@ -516,7 +523,6 @@ export default function SessionCreate() {
               <button type="submit" className="primary" disabled={loading}>
                 {loading ? 'Loading...' : 'Continue'}
               </button>
-              <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
             </div>
           </div>
         </form>
@@ -526,7 +532,7 @@ export default function SessionCreate() {
         <form onSubmit={handleChunking} className="form-fields">
           <p className="form-info">Sheet has <strong>{totalRows}</strong> records.</p>
           <div className="form-field form-field-inline">
-            <label htmlFor="from-row">From row:</label>
+            <label htmlFor="from-row">From record:</label>
             <input
               id="from-row"
               type="number"
@@ -536,7 +542,7 @@ export default function SessionCreate() {
               onChange={(e) => setChunkRangeStart(e.target.value)}
               className="form-input-narrow"
             />
-            <label htmlFor="to-row">To row:</label>
+            <label htmlFor="to-row">To record:</label>
             <input
               id="to-row"
               type="number"
@@ -604,7 +610,6 @@ export default function SessionCreate() {
               <button type="submit" className="primary" disabled={loading || customSumExceedsRange}>
                 {loading ? 'Saving...' : 'Continue'}
               </button>
-              <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
             </div>
           </div>
         </form>
@@ -683,14 +688,13 @@ export default function SessionCreate() {
               <button type="submit" className="primary" disabled={loading}>
                 {loading ? 'Saving...' : 'Continue'}
               </button>
-              <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
             </div>
           </div>
         </form>
       )}
 
       {step === 5 && (
-        <form onSubmit={handleSaveOptions}>
+        <form onSubmit={handleSaveOptions} className="form-fields">
           <p>Configure the options shown as buttons for the target column. One per line or comma-separated.</p>
           <textarea
             value={targetOptions}
@@ -699,13 +703,14 @@ export default function SessionCreate() {
             rows={8}
             style={{ width: '100%', marginBottom: '1rem' }}
           />
-          <p style={{ marginTop: '1rem' }}>
-            <button type="submit" className="primary" disabled={loading}>
-              {loading ? 'Saving...' : 'Finish and open session'}
-            </button>
-            {' '}
-            <button type="button" onClick={handleCancel} disabled={loading}>Cancel</button>
-          </p>
+          <div className="form-field form-actions">
+            <span className="form-field-spacer" />
+            <div className="form-actions-buttons">
+              <button type="submit" className="primary" disabled={loading}>
+                {loading ? 'Saving...' : 'Finish and open project'}
+              </button>
+            </div>
+          </div>
         </form>
       )}
     </div>

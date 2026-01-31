@@ -145,7 +145,7 @@ export default function Compare() {
 
   return (
     <div className="card">
-      <h1>Compare</h1>
+      <h1>COMPARE</h1>
       <div className="wizard-steps">
         {STEPS.map((label, i) => (
           <span
@@ -280,13 +280,13 @@ export default function Compare() {
               {compareResult.totalRows !== undefined && (
                 <>
                   <p>
-                    Total rows: {compareResult.totalRows}
+                    Total records: {compareResult.totalRows}
                     {compareResult.sameCount !== undefined && (
                       <> — Same: {compareResult.sameCount} ({compareResult.samePct}%) · Different: {compareResult.differentCount} ({compareResult.differentPct}%)</>
                     )}
                   </p>
                   <p style={{ fontSize: '0.9rem', color: '#64748b', marginTop: '-0.25rem' }}>
-                    Same = rows where both columns match; table shows distribution per column.
+                    Same = records where both columns match; table shows distribution per column.
                   </p>
                 </>
               )}

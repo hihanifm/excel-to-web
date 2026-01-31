@@ -204,7 +204,7 @@ button.btn-danger:active:not(:disabled) {
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 
-/* Back to session, Previous, Next: soft teal outline style */
+/* BACK, PREV, NEXT: soft teal outline style */
 button.btn-nav {
   background: linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 100%);
   border: 1px solid #5eead4;
@@ -304,6 +304,11 @@ h1, h2 { margin-top: 0; }
   flex: 1 1 14rem;
   min-width: 14rem;
 }
+.form-field .form-input input[type="file"] {
+  width: 100%;
+  min-width: 14rem;
+  box-sizing: border-box;
+}
 .form-input-narrow {
   width: 5.5rem;
   min-width: 5.5rem;
@@ -385,6 +390,9 @@ h1, h2 { margin-top: 0; }
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+.form-actions-buttons .primary {
+  min-width: 10rem;
 }
 .form-info {
   margin: 0;
@@ -549,4 +557,166 @@ table.data-table tbody tr.session-row-clickable:hover .session-name {
   border-color: #0d9488 !important;
   background: #fff !important;
   box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
+}
+
+/* Chunk editor: main panel layout and hierarchy */
+.chunk-editor-back {
+  margin: 0 0 1rem 0;
+}
+.chunk-editor-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin: 0 0 1.25rem 0;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+.chunk-editor-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+.chunk-editor-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+.chunk-editor-meta strong { color: #334155; }
+.chunk-editor-assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.chunk-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: 0.75rem 0;
+}
+.chunk-editor-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  font-size: 0.9375rem;
+}
+.chunk-editor-toolbar select {
+  padding: 0.4rem 0.6rem;
+  min-width: 3.5rem;
+}
+.chunk-editor-row-nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  font-size: 0.9375rem;
+  color: #475569;
+}
+.chunk-editor-row-nav input[type="number"] {
+  width: 4rem;
+  text-align: right;
+  padding: 0.4rem 0.5rem;
+}
+.chunk-editor-data-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.chunk-editor-data-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  width: 100%;
+}
+.chunk-editor-data-side h3,
+.chunk-editor-labels-side h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+.chunk-editor-data-side ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.chunk-editor-data-side li {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+.chunk-editor-data-side li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+.chunk-editor-data-side li strong { color: #334155; }
+.chunk-editor-labels-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.chunk-editor-labels-actions button {
+  min-width: 5rem;
+}
+.chunk-editor-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+}
+.chunk-editor-nav-row .btn-nav { flex: 1; min-width: 7rem; }
+.chunk-editor-settings-bottom {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.chunk-editor-settings-bottom .chunk-editor-toolbar {
+  margin: 0;
+  padding: 0;
+}
+.chunk-editor-settings-bottom .chunk-editor-row-nav {
+  margin: 0;
+}
+.chunk-editor-complete-btn {
+  flex-shrink: 0;
+  font-weight: 600;
+  padding: 0.6rem 1.25rem;
+}
+.chunk-editor-error {
+  margin: 0 0 1rem 0;
+  padding: 0.75rem 1rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+}
+.chunk-editor-loading {
+  margin: 0;
+  padding: 1rem 0;
+  color: #64748b;
+  font-size: 0.9375rem;
 }

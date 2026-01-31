@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApiStatus } from '../App';
 
 /** Format ISO date string to a short readable format */
@@ -23,14 +23,17 @@ export default function SessionList() {
   const [loading, setLoading] = useState(true);
   const { setApiStatus } = useApiStatus();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    fetch('/api/sessions')
+    if (location.pathname !== '/') return;
+    setLoading(true);
+    fetch('/api/sessions', { cache: 'no-store' })
       .then((r) => r.json())
       .then(setSessions)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [location.pathname]);
 
   // Poll API status only while SessionList is mounted
   useEffect(() => {
@@ -53,15 +56,15 @@ export default function SessionList() {
     };
   }, [setApiStatus]);
 
-  if (loading) return <div className="card">Loading sessions...</div>;
+  if (loading) return <div className="card">Loading projects...</div>;
   if (sessions.length === 0) {
     return (
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-          <h1 style={{ margin: 0 }}>Sessions</h1>
-          <Link to="/create" className="btn-link-primary">+ New session</Link>
+          <h1 style={{ margin: 0 }}>PROJECTS</h1>
+          <Link to="/create" className="btn-link-primary">CREATE</Link>
         </div>
-        <p style={{ marginTop: '1.5rem', color: '#64748b' }}>No sessions yet. Create one to get started.</p>
+        <p style={{ marginTop: '1.5rem', color: '#64748b' }}>No projects yet. Create one to get started.</p>
       </div>
     );
   }
@@ -69,17 +72,20 @@ export default function SessionList() {
   return (
     <div className="card">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
-        <h1 style={{ margin: 0 }}>Sessions</h1>
-        <Link to="/create" className="btn-link-primary">+ New session</Link>
+        <h1 style={{ margin: 0 }}>PROJECTS</h1>
+        <Link to="/create" className="btn-link-primary">CREATE</Link>
       </div>
       <div className="table-wrap">
         <table className="data-table">
           <thead>
             <tr>
-              <th>Session</th>
+              <th>Project</th>
               <th>Creator</th>
               <th>Records</th>
+              <th>Chunks</th>
+              <th>Completion</th>
               <th>Created</th>
+              <th>Updated</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -91,12 +97,19 @@ export default function SessionList() {
                 onClick={() => navigate(`/sessions/${s.id}`)}
               >
                 <td>
-                  <span className="session-name">{s.name || `Session ${s.id}`}</span>
+                  <span className="session-name">{s.name || `Project ${s.id}`}</span>
                   <span className="session-id">#{s.id}</span>
                 </td>
                 <td>{s.creator_name || '–'}</td>
-                <td>{s.total_rows != null ? s.total_rows.toLocaleString() : '–'}</td>
+                <td>
+                  {s.total_rows != null
+                    ? `${(s.rowsEdited ?? 0).toLocaleString()} / ${s.total_rows.toLocaleString()} (${s.recordsCompletionPct ?? 0}%)`
+                    : '–'}
+                </td>
+                <td>{s.totalChunks != null ? s.totalChunks : '–'}</td>
+                <td><strong>{s.completionPct ?? 0}%</strong></td>
                 <td className="session-date">{formatDate(s.created_at)}</td>
+                <td className="session-date">{formatDate(s.updated_at)}</td>
                 <td>
                   {s.status === 'completed' ? (
                     <span className="status-badge status-completed">Completed</span>

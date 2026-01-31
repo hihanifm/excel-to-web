@@ -11,10 +11,10 @@ let sessionId;
 test.describe('Create session cancel', () => {
   test('cancel on step 1 navigates to sessions', async ({ page }) => {
     await page.goto('/create');
-    await expect(page.getByRole('heading', { name: /create session/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /create project/i })).toBeVisible();
     await page.getByRole('button', { name: /cancel/i }).click();
     await expect(page).not.toHaveURL(/\/create/);
-    await expect(page.getByRole('heading', { name: /^sessions$/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^projects$/i })).toBeVisible();
   });
 
   test('cancel on step 2 abandons draft and navigates', async ({ page }) => {
@@ -24,14 +24,15 @@ test.describe('Create session cancel', () => {
       window.confirm = () => window.__confirmStub;
     });
     await page.goto('/create');
-    await expect(page.getByRole('heading', { name: /create session/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /create project/i })).toBeVisible();
+    await page.getByLabel('Project name').fill('E2E Cancel Test');
     await page.locator('input[type="file"]').setInputFiles(SAMPLE_PATH);
     await page.getByRole('button', { name: /^upload$/i }).click();
     await expect(page.getByText(/choose a sheet/i)).toBeVisible({ timeout: 10000 });
 
     await page.getByRole('button', { name: /cancel/i }).click();
     await expect(page).not.toHaveURL(/\/create/, { timeout: 15000 });
-    await expect(page.getByRole('heading', { name: /^sessions$/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^projects$/i })).toBeVisible();
   });
 });
 
@@ -41,8 +42,9 @@ test.describe.serial('Session and chunk e2e', () => {
 
     await page.goto('/create');
 
-    await expect(page.getByRole('heading', { name: /create session/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /create project/i })).toBeVisible();
     await expect(page.getByRole('radio', { name: /choose from preloaded/i })).toBeVisible();
+    await page.getByLabel('Project name').fill('E2E Test Project');
     await page.getByLabel('Creator name').fill('E2E Test User');
     await page.locator('input[type="file"]').setInputFiles(SAMPLE_PATH);
     await page.getByRole('button', { name: /^upload$/i }).click();
@@ -68,7 +70,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await expect(page.getByText(/configure the options/i)).toBeVisible();
 
     await page.getByRole('textbox').fill('Option1\nOption2\nOption3');
-    await page.getByRole('button', { name: /finish and open session/i }).click();
+    await page.getByRole('button', { name: /finish and open project/i }).click();
 
     await expect(page).toHaveURL(/\/sessions\/\d+$/);
     const match = page.url().match(/\/sessions\/(\d+)$/);

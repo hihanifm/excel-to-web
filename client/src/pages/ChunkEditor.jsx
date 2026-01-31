@@ -338,30 +338,40 @@ export default function ChunkEditor() {
     if (!resumeChecked) {
       return (
         <div className="card">
-          <p style={{ margin: '0 0 0.5rem 0' }}><button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })}>← Back to session</button></p>
-          <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
-          <p>{mayResume ? 'Resuming...' : 'Loading...'}</p>
+          <div className="chunk-editor-back">
+            <button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })}>← BACK</button>
+          </div>
+          <header className="chunk-editor-header">
+            <h1>Chunk {Number(chunkIndex) + 1}</h1>
+          </header>
+          <p className="chunk-editor-loading">{mayResume ? 'Resuming...' : 'Loading...'}</p>
         </div>
       );
     }
     return (
       <div className="card">
-        <p style={{ margin: '0 0 0.5rem 0' }}><button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })}>← Back to session</button></p>
-        <p style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap', margin: 0 }}>
-          <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
+        <div className="chunk-editor-back">
+          <button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })}>← BACK</button>
+        </div>
+        <header className="chunk-editor-header">
+          <h1>Chunk {Number(chunkIndex) + 1}</h1>
           {chunkTag?.trim() && (
-            <span style={{ color: '#555', fontSize: '0.95rem' }}>Tag: <strong>{chunkTag.trim()}</strong></span>
+            <div className="chunk-editor-meta">
+              <span>Tag: <strong>{chunkTag.trim()}</strong></span>
+            </div>
           )}
-        </p>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
+        </header>
+        {error && <p className="chunk-editor-error" role="alert">{error}</p>}
         <form onSubmit={handleClaim}>
-          <p>
-            <label>Your name: </label>
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </p>
-          <button type="submit" className="primary" disabled={claimSubmitting}>
-            {claimSubmitting ? 'Claiming...' : 'Claim chunk'}
-          </button>
+          <div className="form-field">
+            <label htmlFor="claim-name">Your name</label>
+            <input id="claim-name" className="form-input" value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+          <div className="form-field form-actions">
+            <button type="submit" className="primary" disabled={claimSubmitting}>
+              {claimSubmitting ? 'Claiming...' : 'Claim chunk'}
+            </button>
+          </div>
         </form>
       </div>
     );
@@ -369,17 +379,19 @@ export default function ChunkEditor() {
 
   return (
     <div className="card">
-      <p style={{ margin: '0 0 0.5rem 0' }}>
-        <button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })}>← Back to session</button>
-      </p>
-      <p style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', margin: 0, justifyContent: 'space-between' }}>
-        <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+      <div className="chunk-editor-back">
+        <button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })} aria-label="Back to project">
+          ← BACK
+        </button>
+      </div>
+      <header className="chunk-editor-header">
+        <h1>Chunk {Number(chunkIndex) + 1}</h1>
+        <div className="chunk-editor-meta">
           {chunkTag?.trim() && (
-            <span style={{ color: '#555', fontSize: '0.9rem' }}>Tag: <strong>{chunkTag.trim()}</strong></span>
+            <span>Tag: <strong>{chunkTag.trim()}</strong></span>
           )}
           {name?.trim() && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#555', fontSize: '0.9rem' }} title="Edit your name">
+            <span className="chunk-editor-assignee" title="Edit your name">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
@@ -390,153 +402,78 @@ export default function ChunkEditor() {
                 onChange={(e) => setName(e.target.value)}
                 onBlur={(e) => handleSaveName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.target.blur();
-                  }
+                  if (e.key === 'Enter') e.target.blur();
                 }}
                 disabled={nameSaving}
                 aria-label="Assignee name"
-                style={{
-                  width: '6rem',
-                  minWidth: '4rem',
-                  maxWidth: '12rem',
-                  padding: '0.2rem 0.4rem',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  border: '1px solid transparent',
-                  borderRadius: 4,
-                  background: 'transparent',
-                  color: 'inherit',
-                }}
                 className="name-input-editable"
+                style={{
+                  width: '6rem', minWidth: '4rem', maxWidth: '12rem',
+                  padding: '0.2rem 0.4rem', fontSize: '0.9rem', fontWeight: 600,
+                  border: '1px solid transparent', borderRadius: 4, background: 'transparent', color: 'inherit',
+                }}
               />
             </span>
           )}
-        </span>
-      </p>
-      <p>
-        Records per view:{' '}
-        <select value={limit} onChange={(e) => {
-          const val = Number(e.target.value);
-          setLimit(val);
-          setOffset(0);
-          loadRows(0, val);
-          if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(ROWS_PER_VIEW_KEY, String(val));
-        }}>
-          {[1, 5, 10].map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ))}
-        </select>
-        {' '}
-        <label style={{ marginLeft: '1rem' }}>
-          <input type="checkbox" checked={autoAdvance} disabled={limit !== 1} onChange={(e) => {
-          const checked = e.target.checked;
-          setAutoAdvance(checked);
-          if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(AUTO_ADVANCE_KEY, checked ? 'true' : 'false');
-        }} />
-          {' '}Auto-advance after saving {limit === 1 ? '(next row)' : ''}
-        </label>
-        {' '}
-        <label style={{ marginLeft: '1rem' }}>
-          <input type="checkbox" checked={soundOnSelect} onChange={(e) => {
-          const checked = e.target.checked;
-          setSoundOnSelect(checked);
-          if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(SOUND_ON_SELECT_KEY, checked ? 'true' : 'false');
-        }} />
-          {' '}Play sound on selection
-        </label>
-      </p>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+        </div>
+      </header>
+      {error && <p className="chunk-editor-error" role="alert">{error}</p>}
       {loading && data.rows.length === 0 ? (
-        <p>Loading...</p>
+        <p className="chunk-editor-loading">Loading...</p>
       ) : (
         <>
-          <p style={{ textAlign: 'right', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <span>Row</span>
-            <input
-              type="number"
-              min={chunkStart1}
-              max={chunkEnd1}
-              value={goToRowInput !== '' ? goToRowInput : currentStartRow}
-              onFocus={() => setGoToRowInput(String(currentStartRow))}
-              onChange={(e) => setGoToRowInput(e.target.value)}
-              onBlur={(e) => applyGoToRow(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  applyGoToRow(e.target.value);
-                  e.target.blur();
-                }
-              }}
-              style={{ width: '4rem', textAlign: 'right' }}
-              aria-label="Go to row number"
-            />
-            <span>of {rangeStr}</span>
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="chunk-editor-data-section">
             {data.rows?.map((row) => (
-              <div key={row.rowIndex} className="card card-row" style={{ width: '100%' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <strong style={{ fontSize: '0.9rem', color: '#555' }}>Row {row.rowIndex + 1}</strong>
-                    <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
+              <div key={row.rowIndex} className="card card-row">
+                <div className="chunk-editor-data-card">
+                  <div className="chunk-editor-data-side">
+                    <h3>Record {row.rowIndex + 1}</h3>
+                    <ul>
                       {Object.entries(row.leftValues || {}).map(([k, v], idx, arr) => (
-                        <li
-                          key={k}
-                          style={{
-                            borderBottom: idx < arr.length - 1 ? '1px solid #ddd' : undefined,
-                            paddingBottom: idx < arr.length - 1 ? '0.75rem' : 0,
-                            marginBottom: idx < arr.length - 1 ? '0.75rem' : 0,
-                          }}
-                        >
+                        <li key={k}>
                           <strong>{k}:</strong>{' '}
                           <span style={{ whiteSpace: 'pre-wrap' }}>{renderConversation(v)}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
-                  <div>
-                    <strong>Labels</strong>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <div className="chunk-editor-labels-side">
+                    <h3>Labels</h3>
+                    <div className="chunk-editor-labels-actions">
                       {(data.targetOptions || []).map((opt) => {
-                          const isSelected = row.targetCurrentValue === opt;
-                          const isUserSelected = userSelectedRowOffsets.has(row.rowOffsetInChunk);
-                          const btnClass = !isSelected ? '' : isUserSelected ? 'btn-selected-warm' : 'primary';
-                          return (
-                        <button
-                          key={opt}
-                          type="button"
-                          className={btnClass}
-                          onClick={() => {
-                            if (soundOnSelect) playSelectionSound();
-                            // Always show orange when user clicks (even if same pre-selected option)
-                            setUserSelectedRowOffsets((prev) => new Set(prev).add(row.rowOffsetInChunk));
-                            if (opt !== row.targetCurrentValue) {
-                              // Optimistic: update selection, pause 300ms, then save and advance
-                              setData((prev) => ({
-                                ...prev,
-                                rows: prev.rows.map((r) =>
-                                  r.rowOffsetInChunk === row.rowOffsetInChunk
-                                    ? { ...r, targetCurrentValue: opt }
-                                    : r
-                                ),
-                              }));
-                              const rowOffset = row.rowOffsetInChunk;
-                              setTimeout(() => handleSetValue(rowOffset, opt), 300);
-                            } else if (autoAdvance && data.rows.length === 1 && offset + 1 < data.totalInChunk) {
-                              fetch(`/api/sessions/${id}/chunks/${chunkIndex}/rows-viewed`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ name: name.trim(), rowOffsets: [row.rowOffsetInChunk] }),
-                              }).catch(() => {});
-                              loadRows(offset + 1, limit);
-                              setOffset((o) => o + 1);
-                            }
-                          }}
-                        >
-                          {opt}
-                        </button>
-                          );
+                        const isSelected = row.targetCurrentValue === opt;
+                        const isUserSelected = userSelectedRowOffsets.has(row.rowOffsetInChunk);
+                        const btnClass = !isSelected ? '' : isUserSelected ? 'btn-selected-warm' : 'primary';
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            className={btnClass}
+                            onClick={() => {
+                              if (soundOnSelect) playSelectionSound();
+                              setUserSelectedRowOffsets((prev) => new Set(prev).add(row.rowOffsetInChunk));
+                              if (opt !== row.targetCurrentValue) {
+                                setData((prev) => ({
+                                  ...prev,
+                                  rows: prev.rows.map((r) =>
+                                    r.rowOffsetInChunk === row.rowOffsetInChunk ? { ...r, targetCurrentValue: opt } : r
+                                  ),
+                                }));
+                                setTimeout(() => handleSetValue(row.rowOffsetInChunk, opt), 300);
+                              } else if (autoAdvance && data.rows.length === 1 && offset + 1 < data.totalInChunk) {
+                                fetch(`/api/sessions/${id}/chunks/${chunkIndex}/rows-viewed`, {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ name: name.trim(), rowOffsets: [row.rowOffsetInChunk] }),
+                                }).catch(() => {});
+                                loadRows(offset + 1, limit);
+                                setOffset((o) => o + 1);
+                              }
+                            }}
+                          >
+                            {opt}
+                          </button>
+                        );
                       })}
                     </div>
                   </div>
@@ -544,8 +481,10 @@ export default function ChunkEditor() {
               </div>
             ))}
           </div>
-          <p style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <button type="button" className="btn-nav" style={{ flex: 1 }} onClick={goPrev} disabled={offset === 0}>Prev (left arrow)</button>
+          <div className="chunk-editor-nav-row">
+            <button type="button" className="btn-nav" onClick={goPrev} disabled={offset === 0} aria-label="Previous record (left arrow)">
+              PREV
+            </button>
             {(() => {
               if (typeof sessionStorage === 'undefined' || !data.totalInChunk) return null;
               const v = sessionStorage.getItem(LAST_UPDATED_ROW_KEY(id, chunkIndex));
@@ -563,17 +502,83 @@ export default function ChunkEditor() {
                     if (typeof window !== 'undefined') window.scrollTo(0, 0);
                   }}
                 >
-                  Go to last updated (row {displayRow})
+                  Last updated (record {displayRow})
                 </button>
               );
             })()}
-            <button type="button" className="btn-nav" style={{ flex: 1 }} onClick={goNext} disabled={offset + limit >= data.totalInChunk}>Next (right arrow)</button>
-          </p>
-          <p style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="button" className="primary" onClick={handleComplete}>
+            <button type="button" className="btn-nav" onClick={goNext} disabled={offset + limit >= data.totalInChunk} aria-label="Next record (right arrow)">
+              NEXT
+            </button>
+          </div>
+          <div className="chunk-editor-settings-bottom">
+            <div className="chunk-editor-toolbar">
+              <label>
+                Records per view:{' '}
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setLimit(val);
+                    setOffset(0);
+                    loadRows(0, val);
+                    if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(ROWS_PER_VIEW_KEY, String(val));
+                  }}
+                  aria-label="Records per view"
+                >
+                  {[1, 5, 10].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={autoAdvance}
+                  disabled={limit !== 1}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setAutoAdvance(checked);
+                    if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(AUTO_ADVANCE_KEY, checked ? 'true' : 'false');
+                  }}
+                />
+                {' '}Auto-advance after saving{limit === 1 ? ' (next record)' : ''}
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={soundOnSelect}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setSoundOnSelect(checked);
+                    if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(SOUND_ON_SELECT_KEY, checked ? 'true' : 'false');
+                  }}
+                />
+                {' '}Play sound on selection
+              </label>
+            </div>
+            <div className="chunk-editor-row-nav">
+              <span>Record</span>
+              <input
+                type="number"
+                min={chunkStart1}
+                max={chunkEnd1}
+                value={goToRowInput !== '' ? goToRowInput : currentStartRow}
+                onFocus={() => setGoToRowInput(String(currentStartRow))}
+                onChange={(e) => setGoToRowInput(e.target.value)}
+                onBlur={(e) => applyGoToRow(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    applyGoToRow(e.target.value);
+                    e.target.blur();
+                  }
+                }}
+                aria-label="Go to record number"
+              />
+              <span>of {rangeStr}</span>
+            </div>
+            <button type="button" className="btn-success chunk-editor-complete-btn" onClick={handleComplete}>
               Mark chunk as completed
             </button>
-          </p>
+          </div>
         </>
       )}
     </div>
