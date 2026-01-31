@@ -99,6 +99,7 @@ export function insertSessionRowsBatch(sessionId, rows) {
 export function createChunks(sessionId, totalRows, options = {}) {
   const rangeStart = options.rangeStart ?? 0;
   const rangeEnd = options.rangeEnd ?? totalRows;
+  const parentId = options.parentId ?? null;
   const chunkSizes = Array.isArray(options.chunkSizes) && options.chunkSizes.length > 0
     ? options.chunkSizes.filter((s) => Number(s) > 0).map(Number)
     : [100];
@@ -106,7 +107,7 @@ export function createChunks(sessionId, totalRows, options = {}) {
   const end = Math.min(totalRows, rangeEnd);
   const db = getDb(process.env.DB_PATH);
   const stmt = db.prepare(
-    'INSERT INTO chunks (session_id, chunk_index, start_row, end_row, status) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO chunks (session_id, parent_id, chunk_index, start_row, end_row, status) VALUES (?, ?, ?, ?, ?, ?)'
   );
   const insertAll = db.transaction(() => {
     let cursor = start;
@@ -115,7 +116,7 @@ export function createChunks(sessionId, totalRows, options = {}) {
       const sizeIndex = chunkIndex % chunkSizes.length;
       const size = chunkSizes[sizeIndex];
       const chunkEnd = Math.min(cursor + size, end);
-      stmt.run(sessionId, chunkIndex, cursor, chunkEnd, 'unclaimed');
+      stmt.run(sessionId, parentId, chunkIndex, cursor, chunkEnd, 'unclaimed');
       cursor = chunkEnd;
       chunkIndex += 1;
     }
@@ -181,7 +182,9 @@ export function listSessions() {
     'SELECT id, name, creator_name, file_path, sheet_name, total_rows, chunk_range_start, chunk_range_end, chunk_sizes, created_at, updated_at, status FROM sessions ORDER BY created_at DESC'
   ).all();
   const completionBySession = db.prepare(
-    `SELECT session_id, COUNT(*) AS total, SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed FROM chunks GROUP BY session_id`
+    `SELECT session_id, COUNT(*) AS total, SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed
+     FROM chunks c WHERE NOT EXISTS (SELECT 1 FROM chunks c2 WHERE c2.parent_id = c.id)
+     GROUP BY session_id`
   ).all();
   const rowsEditedBySession = db.prepare(
     `SELECT session_id, COUNT(*) AS c FROM row_edits WHERE user_edited = 1 GROUP BY session_id`
@@ -214,13 +217,18 @@ export function listSessions() {
   });
 }
 
+/** Leaf chunk = no row has parent_id = this chunk's id. */
+function getLeafChunksBySession(db, sessionId) {
+  return db.prepare(
+    `SELECT id, status FROM chunks c WHERE c.session_id = ? AND NOT EXISTS (SELECT 1 FROM chunks c2 WHERE c2.parent_id = c.id)`
+  ).all(sessionId);
+}
+
 export function getSessionStats(sessionId) {
   const db = getDb(process.env.DB_PATH);
   const session = getSession(sessionId);
   if (!session) return null;
-  const chunks = db.prepare(
-    'SELECT status FROM chunks WHERE session_id = ?'
-  ).all(sessionId);
+  const chunks = getLeafChunksBySession(db, sessionId);
   const rowsEdited = db.prepare(
     'SELECT COUNT(*) as c FROM row_edits WHERE session_id = ? AND user_edited = 1'
   ).get(sessionId).c;
@@ -239,111 +247,203 @@ export function getSessionStats(sessionId) {
   };
 }
 
-export function getChunks(sessionId) {
+export function getChunks(sessionId, parentId = null) {
   const db = getDb(process.env.DB_PATH);
   const chunks = db.prepare(
-    `SELECT chunk_index, start_row, end_row, assignee_name, status, completed_at, tag
-     FROM chunks WHERE session_id = ? ORDER BY chunk_index`
-  ).all(sessionId);
-  const rowsEditedCount = db.prepare(
-    `SELECT chunk_index, COUNT(*) as c FROM chunks ch
-     JOIN row_edits re ON re.session_id = ch.session_id AND re.row_index >= ch.start_row AND re.row_index < ch.end_row AND re.user_edited = 1
-     WHERE ch.session_id = ? GROUP BY ch.chunk_index`
-  ).all(sessionId);
-  const byChunk = Object.fromEntries(rowsEditedCount.map((r) => [r.chunk_index, r.c]));
+    `SELECT id, parent_id, chunk_index, start_row, end_row, assignee_name, status, completed_at, tag
+     FROM chunks WHERE session_id = ? AND ( (? IS NULL AND parent_id IS NULL) OR parent_id = ? )
+     ORDER BY chunk_index`
+  ).all(sessionId, parentId, parentId);
+  const ids = chunks.map((c) => c.id);
+  const childCounts = ids.length === 0
+    ? {}
+    : Object.fromEntries(
+        db.prepare(
+          `SELECT parent_id as id, COUNT(*) as c FROM chunks WHERE parent_id IN (${ids.map(() => '?').join(',')}) GROUP BY parent_id`
+        ).all(...ids).map((r) => [r.id, r.c])
+      );
+  const rowsEditedCount = ids.length === 0
+    ? []
+    : db.prepare(
+        `SELECT ch.id, COUNT(*) as c FROM chunks ch
+         JOIN row_edits re ON re.session_id = ch.session_id AND re.row_index >= ch.start_row AND re.row_index < ch.end_row AND re.user_edited = 1
+         WHERE ch.id IN (${ids.map(() => '?').join(',')}) GROUP BY ch.id`
+      ).all(...ids);
+  const byChunk = Object.fromEntries(rowsEditedCount.map((r) => [r.id, r.c]));
   return chunks.map((c) => ({
     ...c,
+    childCount: childCounts[c.id] ?? 0,
     rowsInChunk: c.end_row - c.start_row,
-    rowsEditedInChunk: byChunk[c.chunk_index] || 0,
+    rowsEditedInChunk: byChunk[c.id] || 0,
   }));
 }
 
-export function getChunk(sessionId, chunkIndex) {
+export function getChunk(sessionId, chunkId) {
   const db = getDb(process.env.DB_PATH);
   const chunk = db.prepare(
-    'SELECT chunk_index, start_row, end_row, assignee_name, status, completed_at, tag FROM chunks WHERE session_id = ? AND chunk_index = ?'
-  ).get(sessionId, chunkIndex);
+    'SELECT id, parent_id, chunk_index, start_row, end_row, assignee_name, status, completed_at, tag FROM chunks WHERE session_id = ? AND id = ?'
+  ).get(sessionId, chunkId);
   if (!chunk) return null;
+  const childCount = db.prepare('SELECT COUNT(*) as c FROM chunks WHERE parent_id = ?').get(chunk.id).c;
   const rowsEdited = db.prepare(
     `SELECT COUNT(*) as c FROM row_edits WHERE session_id = ? AND row_index >= ? AND row_index < ? AND user_edited = 1`
   ).get(sessionId, chunk.start_row, chunk.end_row);
   return {
     ...chunk,
+    childCount,
     rowsInChunk: chunk.end_row - chunk.start_row,
     rowsEditedInChunk: rowsEdited?.c ?? 0,
   };
 }
 
-export function claimChunk(sessionId, chunkIndex, name) {
+export function claimChunk(sessionId, chunkId, name) {
   const db = getDb(process.env.DB_PATH);
   const chunk = db.prepare(
-    'SELECT * FROM chunks WHERE session_id = ? AND chunk_index = ?'
-  ).get(sessionId, chunkIndex);
+    'SELECT * FROM chunks WHERE session_id = ? AND id = ?'
+  ).get(sessionId, chunkId);
   if (!chunk) return { ok: false, error: 'Chunk not found' };
+  const hasChildren = db.prepare('SELECT 1 FROM chunks WHERE parent_id = ? LIMIT 1').get(chunk.id);
+  if (hasChildren) return { ok: false, error: 'Cannot claim a container chunk; open it to claim a leaf' };
   if (chunk.status !== 'unclaimed' && chunk.assignee_name !== name) {
     return { ok: false, error: 'Chunk already claimed by someone else' };
   }
   db.prepare(
-    'UPDATE chunks SET assignee_name = ?, claimed_at = datetime(\'now\'), status = ? WHERE session_id = ? AND chunk_index = ?'
-  ).run(name, 'in_progress', sessionId, chunkIndex);
+    'UPDATE chunks SET assignee_name = ?, claimed_at = datetime(\'now\'), status = ? WHERE id = ?'
+  ).run(name, 'in_progress', chunk.id);
   return { ok: true };
 }
 
-export function completeChunk(sessionId, chunkIndex, name) {
+export function completeChunk(sessionId, chunkId, name) {
   const db = getDb(process.env.DB_PATH);
   const chunk = db.prepare(
-    'SELECT * FROM chunks WHERE session_id = ? AND chunk_index = ?'
-  ).get(sessionId, chunkIndex);
+    'SELECT * FROM chunks WHERE session_id = ? AND id = ?'
+  ).get(sessionId, chunkId);
   if (!chunk) return { ok: false, error: 'Chunk not found' };
   if (chunk.assignee_name !== name) return { ok: false, error: 'Not your chunk' };
   db.prepare(
-    'UPDATE chunks SET status = ?, completed_at = datetime(\'now\') WHERE session_id = ? AND chunk_index = ?'
-  ).run('completed', sessionId, chunkIndex);
+    'UPDATE chunks SET status = ?, completed_at = datetime(\'now\') WHERE id = ?'
+  ).run('completed', chunk.id);
   return { ok: true };
 }
 
-export function getChunkRowRange(sessionId, chunkIndex) {
+export function getChunkRowRange(sessionId, chunkId) {
   const db = getDb(process.env.DB_PATH);
   const chunk = db.prepare(
-    'SELECT start_row, end_row FROM chunks WHERE session_id = ? AND chunk_index = ?'
-  ).get(sessionId, chunkIndex);
+    'SELECT start_row, end_row FROM chunks WHERE session_id = ? AND id = ?'
+  ).get(sessionId, chunkId);
   return chunk ? { startRow: chunk.start_row, endRow: chunk.end_row } : null;
 }
 
-export function getChunkAssignee(sessionId, chunkIndex) {
+export function getChunkAssignee(sessionId, chunkId) {
   const db = getDb(process.env.DB_PATH);
   const chunk = db.prepare(
-    'SELECT assignee_name FROM chunks WHERE session_id = ? AND chunk_index = ?'
-  ).get(sessionId, chunkIndex);
+    'SELECT assignee_name FROM chunks WHERE session_id = ? AND id = ?'
+  ).get(sessionId, chunkId);
   return chunk?.assignee_name;
 }
 
-export function updateChunkTag(sessionId, chunkIndex, tag) {
+export function updateChunkTag(sessionId, chunkId, tag) {
   const db = getDb(process.env.DB_PATH);
   const chunk = db.prepare(
-    'SELECT chunk_index FROM chunks WHERE session_id = ? AND chunk_index = ?'
-  ).get(sessionId, chunkIndex);
+    'SELECT id FROM chunks WHERE session_id = ? AND id = ?'
+  ).get(sessionId, chunkId);
   if (!chunk) return { ok: false, error: 'Chunk not found' };
   const tagStr = tag != null ? String(tag) : '';
   db.prepare(
-    'UPDATE chunks SET tag = ? WHERE session_id = ? AND chunk_index = ?'
-  ).run(tagStr, sessionId, chunkIndex);
+    'UPDATE chunks SET tag = ? WHERE id = ?'
+  ).run(tagStr, chunk.id);
   return { ok: true };
 }
 
-/** Update assignee name; currentName must match existing assignee. */
-export function updateChunkAssignee(sessionId, chunkIndex, currentName, newName) {
+/** Update assignee name. If chunk has assignee, currentName must match; if chunk has no assignee, currentName must be empty (setting initial assignee). */
+export function updateChunkAssignee(sessionId, chunkId, currentName, newName) {
   const db = getDb(process.env.DB_PATH);
   const chunk = db.prepare(
-    'SELECT assignee_name FROM chunks WHERE session_id = ? AND chunk_index = ?'
-  ).get(sessionId, chunkIndex);
+    'SELECT assignee_name FROM chunks WHERE session_id = ? AND id = ?'
+  ).get(sessionId, chunkId);
   if (!chunk) return { ok: false, error: 'Chunk not found' };
-  if (chunk.assignee_name !== currentName) return { ok: false, error: 'Not your chunk' };
+  const existing = chunk.assignee_name ?? '';
+  const current = currentName ?? '';
+  if (existing.trim()) {
+    if (existing !== current) return { ok: false, error: 'Not your chunk' };
+  } else {
+    if (current.trim()) return { ok: false, error: 'Not your chunk' };
+  }
   const trimmed = (newName ?? '').trim();
   if (!trimmed) return { ok: false, error: 'Name cannot be empty' };
   db.prepare(
-    'UPDATE chunks SET assignee_name = ? WHERE session_id = ? AND chunk_index = ?'
-  ).run(trimmed, sessionId, chunkIndex);
+    'UPDATE chunks SET assignee_name = ? WHERE id = ?'
+  ).run(trimmed, chunk.id);
+  return { ok: true };
+}
+
+/** Parse comma-separated numbers string into array of numbers. */
+function parseCommaNumbers(str) {
+  if (str == null) return null;
+  const s = typeof str === 'string' ? str : String(str);
+  const parts = s.split(',').map((p) => Number(p.trim()));
+  if (parts.some((n) => Number.isNaN(n) || n < 0)) return null;
+  return parts;
+}
+
+/** Re-chunk a leaf into N children. Chunk must be leaf (no children). Parent retains assignee.
+ * Options: numChunks (equal), counts (number[]), or percentages (number[] summing to 100). */
+export function rechunkChunk(sessionId, chunkId, options = {}) {
+  const db = getDb(process.env.DB_PATH);
+  const chunk = db.prepare(
+    'SELECT * FROM chunks WHERE session_id = ? AND id = ?'
+  ).get(sessionId, chunkId);
+  if (!chunk) return { ok: false, error: 'Chunk not found' };
+  const hasChildren = db.prepare('SELECT 1 FROM chunks WHERE parent_id = ? LIMIT 1').get(chunk.id);
+  if (hasChildren) return { ok: false, error: 'Only leaf chunks can be re-chunked' };
+  const start = chunk.start_row;
+  const end = chunk.end_row;
+  const rangeLength = end - start;
+
+  let sizes = null;
+  const numChunksOpt = options.numChunks != null ? Number(options.numChunks) : null;
+  const countsOpt = options.counts != null
+    ? (Array.isArray(options.counts) ? options.counts : parseCommaNumbers(options.counts))
+    : null;
+  const percentagesOpt = options.percentages != null
+    ? (Array.isArray(options.percentages) ? options.percentages : parseCommaNumbers(options.percentages))
+    : null;
+
+  if (countsOpt != null && countsOpt.length >= 2) {
+    const sum = countsOpt.reduce((a, b) => a + b, 0);
+    if (sum > rangeLength) return { ok: false, error: 'Counts sum exceeds chunk size' };
+    sizes = [...countsOpt];
+    const remainder = rangeLength - sum;
+    if (remainder > 0) sizes.push(remainder);
+  } else if (percentagesOpt != null && percentagesOpt.length >= 2) {
+    const sum = percentagesOpt.reduce((a, b) => a + b, 0);
+    if (Math.abs(sum - 100) > 0.01) return { ok: false, error: 'Percentages must sum to 100' };
+    sizes = percentagesOpt.map((p) => Math.floor((rangeLength * p) / 100));
+    const remainder = rangeLength - sizes.reduce((a, b) => a + b, 0);
+    if (remainder > 0) sizes[sizes.length - 1] = (sizes[sizes.length - 1] ?? 0) + remainder;
+  } else if (numChunksOpt != null && numChunksOpt >= 2) {
+    const n = Math.floor(numChunksOpt);
+    const chunkSize = Math.floor(rangeLength / n);
+    const remainder = rangeLength - chunkSize * n;
+    sizes = Array(n).fill(chunkSize);
+    if (remainder > 0) sizes[n - 1] = chunkSize + remainder;
+  } else {
+    return { ok: false, error: 'Provide numChunks (≥2), counts (comma-separated), or percentages (comma-separated, sum 100)' };
+  }
+
+  const stmt = db.prepare(
+    'INSERT INTO chunks (session_id, parent_id, chunk_index, start_row, end_row, status) VALUES (?, ?, ?, ?, ?, ?)'
+  );
+  db.transaction(() => {
+    let cursor = start;
+    sizes.forEach((size, i) => {
+      if (size <= 0) return;
+      const chunkEnd = Math.min(cursor + size, end);
+      if (chunkEnd <= cursor) return;
+      stmt.run(sessionId, chunk.id, i, cursor, chunkEnd, 'unclaimed');
+      cursor = chunkEnd;
+    });
+  })();
   return { ok: true };
 }
 
@@ -371,10 +471,10 @@ export function saveRowEdit(sessionId, rowIndex, targetValue) {
 }
 
 /** Mark rows as viewed by user (set user_edited=1 so they count in progress). */
-export function markRowsAsViewed(sessionId, chunkIndex, name, rowOffsets) {
-  const assignee = getChunkAssignee(sessionId, chunkIndex);
+export function markRowsAsViewed(sessionId, chunkId, name, rowOffsets) {
+  const assignee = getChunkAssignee(sessionId, chunkId);
   if (assignee !== name) return { ok: false, error: 'Not your chunk' };
-  const range = getChunkRowRange(sessionId, chunkIndex);
+  const range = getChunkRowRange(sessionId, chunkId);
   if (!range) return { ok: false, error: 'Chunk not found' };
   const totalInChunk = range.endRow - range.startRow;
   const db = getDb(process.env.DB_PATH);

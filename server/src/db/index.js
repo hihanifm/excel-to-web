@@ -21,7 +21,23 @@ export function getDb(dbPath) {
       db.exec('ALTER TABLE sessions ADD COLUMN delete_pin TEXT');
     }
     const chunkCols = db.prepare('PRAGMA table_info(chunks)').all().map((c) => c.name);
-    if (!chunkCols.includes('tag')) {
+    if (!chunkCols.includes('id')) {
+      db.exec('DROP TABLE IF EXISTS chunks');
+      db.exec(`CREATE TABLE chunks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  parent_id INTEGER REFERENCES chunks(id) ON DELETE CASCADE,
+  chunk_index INTEGER NOT NULL,
+  start_row INTEGER NOT NULL,
+  end_row INTEGER NOT NULL,
+  assignee_name TEXT,
+  claimed_at TEXT,
+  status TEXT NOT NULL DEFAULT 'unclaimed',
+  completed_at TEXT,
+  tag TEXT
+)`);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_chunks_parent ON chunks(session_id, parent_id)');
+    } else if (!chunkCols.includes('tag')) {
       db.exec('ALTER TABLE chunks ADD COLUMN tag TEXT');
     }
     const sessionCount = db.prepare('SELECT COUNT(*) as n FROM sessions').get().n;

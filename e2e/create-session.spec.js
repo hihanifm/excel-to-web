@@ -73,15 +73,14 @@ test.describe.serial('Session and chunk e2e', () => {
 
     await page.goto(`/sessions/${sessionId}`);
     await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible();
-    const claimLink = page.getByRole('table').getByRole('link', { name: 'Claim' }).first();
-    await expect(claimLink).toBeVisible({ timeout: 10000 });
-    await claimLink.click();
-    await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/chunks/0/edit`));
-
-    const form = page.locator('form');
-    await form.waitFor({ state: 'visible', timeout: 10000 });
-    await form.getByRole('textbox').fill('E2E Tester');
-    await form.getByRole('button', { name: 'Claim chunk' }).click();
+    const chunksTable = page.getByRole('table');
+    const firstRow = chunksTable.locator('tbody tr').first();
+    await firstRow.getByRole('button', { name: 'Add assignee' }).click();
+    await firstRow.locator('input[placeholder="Name"]').fill('E2E Tester');
+    await firstRow.locator('input[placeholder="Name"]').press('Enter');
+    await expect(firstRow.getByText('E2E Tester')).toBeVisible({ timeout: 5000 });
+    await firstRow.locator('td').first().click();
+    await page.waitForURL(new RegExp(`/sessions/${sessionId}/chunks/\\d+/edit`));
     await expect(page.getByText(/records per view/i)).toBeVisible();
     await page.locator('select').selectOption('5');
     await expect(page.getByText(/of\s+1[-–]25/)).toBeVisible({ timeout: 10000 });
@@ -108,9 +107,35 @@ test.describe.serial('Session and chunk e2e', () => {
     const firstChunkRow = page.getByRole('table').locator('tbody tr').first();
     await expect(firstChunkRow).toBeVisible({ timeout: 5000 });
     await firstChunkRow.locator('td').first().click();
-    await page.waitForURL(new RegExp(`/sessions/${sessionId}/chunks/0/edit`));
+    await page.waitForURL(new RegExp(`/sessions/${sessionId}/chunks/\\d+/edit`));
     await expect(page.getByText(/records per view/i)).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('button', { name: 'Claim chunk' })).not.toBeVisible();
     await expect(page.getByLabel(/your name/i)).not.toBeVisible();
+  });
+
+  test('re-chunk a leaf and open container', async ({ page }) => {
+    test.setTimeout(60000);
+    if (!sessionId) {
+      test.skip(true, 'Session was not created in previous test');
+      return;
+    }
+
+    await page.goto(`/sessions/${sessionId}`);
+    await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible({ timeout: 10000 });
+    // Second chunk (26–50) is unclaimed; first (1–25) is in progress from previous test
+    const chunksTable = page.getByRole('table');
+    const secondRow = chunksTable.locator('tbody tr').nth(1);
+    await expect(secondRow).toContainText('26–50');
+    await expect(secondRow.getByRole('button', { name: 'Re-chunk' })).toBeVisible();
+    await secondRow.getByRole('button', { name: 'Re-chunk' }).click();
+    await secondRow.locator('input[type="number"]').fill('2');
+    await secondRow.getByRole('button', { name: 'Split' }).click();
+    await expect(secondRow.getByRole('link', { name: 'View' }).first()).toBeVisible({ timeout: 5000 });
+    await secondRow.getByRole('link', { name: 'View' }).first().click();
+    await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/chunks/\\d+$`));
+    await expect(page.getByRole('heading', { name: 'Sub-chunks' })).toBeVisible();
+    const subChunkRows = page.getByRole('table').locator('tbody tr');
+    await expect(subChunkRows).toHaveCount(2);
+    await expect(page.getByRole('link', { name: 'Back to project' })).toBeVisible();
   });
 });

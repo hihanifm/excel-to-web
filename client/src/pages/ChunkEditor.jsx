@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, Fragment } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 
 const CLAIMANT_STORAGE_KEY = (sessionId) => `excel-app_claimant_${sessionId}`;
-const LAST_VIEWED_OFFSET_KEY = (sessionId, chunkIndex) => `excel-app_lastOffset_${sessionId}_chunk_${chunkIndex}`;
-const LAST_UPDATED_ROW_KEY = (sessionId, chunkIndex) => `excel-app_lastUpdatedRow_${sessionId}_chunk_${chunkIndex}`;
+const LAST_VIEWED_OFFSET_KEY = (sessionId, chunkId) => `excel-app_lastOffset_${sessionId}_chunk_${chunkId}`;
+const LAST_UPDATED_ROW_KEY = (sessionId, chunkId) => `excel-app_lastUpdatedRow_${sessionId}_chunk_${chunkId}`;
 const ROWS_PER_VIEW_KEY = 'excel-app_rowsPerView';
 const AUTO_ADVANCE_KEY = 'excel-app_autoAdvance';
 const SOUND_ON_SELECT_KEY = 'excel-app_soundOnSelect';
@@ -62,7 +62,7 @@ function renderConversation(str) {
 }
 
 export default function ChunkEditor() {
-  const { id, chunkIndex } = useParams();
+  const { id, chunkId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const [name, setName] = useState('');
@@ -74,6 +74,7 @@ export default function ChunkEditor() {
   const [claimSubmitting, setClaimSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [resumeChecked, setResumeChecked] = useState(false);
+  const [parentChunkId, setParentChunkId] = useState(null);
   const [autoAdvance, setAutoAdvance] = useState(getStoredAutoAdvance);
   const [soundOnSelect, setSoundOnSelect] = useState(getStoredSoundOnSelect);
   const [userSelectedRowOffsets, setUserSelectedRowOffsets] = useState(() => new Set());
@@ -83,6 +84,16 @@ export default function ChunkEditor() {
   const [successMessage, setSuccessMessage] = useState('');
   const [showCompleteCelebration, setShowCompleteCelebration] = useState(false);
   const [completeCelebrationVariant, setCompleteCelebrationVariant] = useState('just_completed'); // 'just_completed' | 'already_completed'
+  const [rechunkOpen, setRechunkOpen] = useState(false);
+  const [rechunkMode, setRechunkMode] = useState('equal'); // 'equal' | 'count' | 'percentage'
+  const [rechunkNumChunks, setRechunkNumChunks] = useState('2');
+  const [rechunkCountsStr, setRechunkCountsStr] = useState('');
+  const [rechunkPercentagesStr, setRechunkPercentagesStr] = useState('');
+  const [rechunkSubmitting, setRechunkSubmitting] = useState(false);
+  const [rechunkError, setRechunkError] = useState('');
+  const [rechunkPendingConfirm, setRechunkPendingConfirm] = useState(false);
+  const [rechunkConfirmMessage, setRechunkConfirmMessage] = useState('');
+  const [rechunkConfirmBody, setRechunkConfirmBody] = useState(null);
   const persistedAssigneeRef = useRef(''); // Last known assignee in DB (for name-edit API)
 
   // Reset chunk-specific state when switching to a different chunk so we always re-fetch and re-evaluate.
@@ -95,12 +106,12 @@ export default function ChunkEditor() {
     setChunkTag('');
     setCompleteCelebrationVariant('just_completed');
     persistedAssigneeRef.current = '';
-  }, [id, chunkIndex]);
+  }, [id, chunkId]);
 
   const loadRows = (off, lim) => {
     setLoading(true);
     setError('');
-    fetch(`/api/sessions/${id}/chunks/${chunkIndex}/row/${off}?limit=${lim}`)
+    fetch(`/api/sessions/${id}/chunks/${chunkId}/row/${off}?limit=${lim}`)
       .then((r) => {
         if (!r.ok) throw new Error('Failed to load rows');
         return r.json();
@@ -120,7 +131,7 @@ export default function ChunkEditor() {
     const norm = (s) => (s || '').trim().toLowerCase();
 
     const ac = new AbortController();
-    fetch(`/api/sessions/${id}/chunks/${chunkIndex}`, { signal: ac.signal, cache: 'no-store' })
+    fetch(`/api/sessions/${id}/chunks/${chunkId}`, { signal: ac.signal, cache: 'no-store' })
       .then((r) => {
         if (!r.ok) return null;
         return r.json();
@@ -130,6 +141,7 @@ export default function ChunkEditor() {
           setResumeChecked(true);
           return;
         }
+        if (chunk.parent_id != null) setParentChunkId(chunk.parent_id);
         if (chunk.status === 'completed') {
           setChunkTag(chunk.tag ?? '');
           setName((chunk.assignee_name || '').trim() || 'Completed');
@@ -150,7 +162,7 @@ export default function ChunkEditor() {
           }
           const totalInChunk = chunk.rowsInChunk ?? chunk.end_row - chunk.start_row;
           const storedOffset = typeof sessionStorage !== 'undefined'
-            ? sessionStorage.getItem(LAST_VIEWED_OFFSET_KEY(id, chunkIndex))
+            ? sessionStorage.getItem(LAST_VIEWED_OFFSET_KEY(id, chunkId))
             : null;
           const resumeOffset = storedOffset != null
             ? Math.min(Math.max(0, parseInt(storedOffset, 10)), Math.max(0, totalInChunk - 1))
@@ -164,16 +176,16 @@ export default function ChunkEditor() {
         setResumeChecked(true);
       });
     return () => ac.abort();
-  }, [id, chunkIndex, claimed, resumeChecked, location.state?.resumeWithName]);
+  }, [id, chunkId, claimed, resumeChecked, location.state?.resumeWithName]);
 
   useEffect(() => {
     if (claimed) loadRows(offset, limit);
-  }, [id, chunkIndex, claimed, offset, limit]);
+  }, [id, chunkId, claimed, offset, limit]);
 
   useEffect(() => {
     if (!claimed || typeof sessionStorage === 'undefined') return;
-    sessionStorage.setItem(LAST_VIEWED_OFFSET_KEY(id, chunkIndex), String(offset));
-  }, [id, chunkIndex, claimed, offset]);
+    sessionStorage.setItem(LAST_VIEWED_OFFSET_KEY(id, chunkId), String(offset));
+  }, [id, chunkId, claimed, offset]);
 
   // Arrow keys: Left/Right = Previous/Next. Number keys 1–9 = first–ninth label (when not in input/textarea/select)
   useEffect(() => {
@@ -181,6 +193,8 @@ export default function ChunkEditor() {
     const onKeyDown = (e) => {
       const tag = document.activeElement?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      // Cmd/Ctrl + Left/Right = browser back/forward; don't capture
+      if (e.metaKey || e.ctrlKey) return;
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
         if (offset > 0) goPrev();
@@ -209,7 +223,7 @@ export default function ChunkEditor() {
             }));
             setTimeout(() => handleSetValue(row.rowOffsetInChunk, opt), 100);
           } else if (autoAdvance && data.rows.length === 1 && offset + 1 < data.totalInChunk) {
-            fetch(`/api/sessions/${id}/chunks/${chunkIndex}/rows-viewed`, {
+            fetch(`/api/sessions/${id}/chunks/${chunkId}/rows-viewed`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name: name.trim(), rowOffsets: [row.rowOffsetInChunk] }),
@@ -222,14 +236,14 @@ export default function ChunkEditor() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [claimed, offset, limit, data.totalInChunk, data.rows, data.targetOptions, soundOnSelect, autoAdvance, id, chunkIndex, name]);
+  }, [claimed, offset, limit, data.totalInChunk, data.rows, data.targetOptions, soundOnSelect, autoAdvance, id, chunkId, name]);
 
   const handleSaveName = (newName) => {
     const trimmed = (newName ?? '').trim();
     const currentPersisted = persistedAssigneeRef.current;
     if (!trimmed || trimmed === currentPersisted) return;
     setNameSaving(true);
-    fetch(`/api/sessions/${id}/chunks/${chunkIndex}/assignee`, {
+    fetch(`/api/sessions/${id}/chunks/${chunkId}/assignee`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ currentName: currentPersisted, newName: trimmed }),
@@ -258,7 +272,7 @@ export default function ChunkEditor() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
     try {
-      const r = await fetch(`/api/sessions/${id}/chunks/${chunkIndex}/claim`, {
+      const r = await fetch(`/api/sessions/${id}/chunks/${chunkId}/claim`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim() }),
@@ -290,7 +304,7 @@ export default function ChunkEditor() {
   };
 
   const handleSetValue = (rowOffsetInChunk, targetValue) => {
-    fetch(`/api/sessions/${id}/chunks/${chunkIndex}/row/${rowOffsetInChunk}`, {
+    fetch(`/api/sessions/${id}/chunks/${chunkId}/row/${rowOffsetInChunk}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: name.trim(), targetValue }),
@@ -302,7 +316,7 @@ export default function ChunkEditor() {
       .then((res) => {
         if (data.totalInChunk === 0) return;
         if (typeof sessionStorage !== 'undefined') {
-          sessionStorage.setItem(LAST_UPDATED_ROW_KEY(id, chunkIndex), String(rowOffsetInChunk));
+          sessionStorage.setItem(LAST_UPDATED_ROW_KEY(id, chunkId), String(rowOffsetInChunk));
         }
         const labeledFromServer = typeof res.labeledInChunk === 'number' ? res.labeledInChunk : undefined;
         const idx = data.rows.findIndex((r) => r.rowOffsetInChunk === rowOffsetInChunk);
@@ -331,7 +345,7 @@ export default function ChunkEditor() {
         }
         // All records in chunk are now labeled → complete chunk and show celebration (same as clicking "Mark chunk as completed").
         if (labeledFromServer === data.totalInChunk && data.totalInChunk > 0) {
-          fetch(`/api/sessions/${id}/chunks/${chunkIndex}/complete`, {
+          fetch(`/api/sessions/${id}/chunks/${chunkId}/complete`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: name.trim() }),
@@ -347,7 +361,7 @@ export default function ChunkEditor() {
   };
 
   const handleComplete = () => {
-    fetch(`/api/sessions/${id}/chunks/${chunkIndex}/complete`, {
+    fetch(`/api/sessions/${id}/chunks/${chunkId}/complete`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: name.trim() }),
@@ -359,19 +373,21 @@ export default function ChunkEditor() {
       .catch((err) => setError(err.message));
   };
 
-  // Redirect to session page after celebration overlay (both "just completed" and "already completed").
+  const backUrl = parentChunkId != null ? `/sessions/${id}/chunks/${parentChunkId}` : `/sessions/${id}`;
+
+  // Redirect to parent chunk or session after celebration overlay (both "just completed" and "already completed").
   useEffect(() => {
     if (!showCompleteCelebration) return;
-    const t = setTimeout(() => navigate(`/sessions/${id}`, { replace: true }), 4000);
+    const t = setTimeout(() => navigate(backUrl, { replace: true }), 4000);
     return () => clearTimeout(t);
-  }, [showCompleteCelebration, id, navigate]);
+  }, [showCompleteCelebration, backUrl, navigate]);
 
   const markCurrentPageAsViewed = () => {
     if (!name?.trim() || data.totalInChunk === 0) return;
     const rowOffsets = [];
     for (let i = 0; i < limit && offset + i < data.totalInChunk; i++) rowOffsets.push(offset + i);
     if (rowOffsets.length === 0) return;
-    fetch(`/api/sessions/${id}/chunks/${chunkIndex}/rows-viewed`, {
+    fetch(`/api/sessions/${id}/chunks/${chunkId}/rows-viewed`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: name.trim(), rowOffsets }),
@@ -407,6 +423,92 @@ export default function ChunkEditor() {
     if (typeof window !== 'undefined') window.scrollTo(0, 0);
   };
 
+  const handleRechunk = () => {
+    setRechunkError('');
+    let body = {};
+    let numChunks = 0;
+    let confirmMsg = '';
+    const totalInChunk = data.totalInChunk ?? 0;
+
+    if (rechunkMode === 'equal') {
+      const num = parseInt(rechunkNumChunks, 10);
+      if (Number.isNaN(num) || num < 2) {
+        setRechunkError('Enter at least 2 sub-chunks');
+        return;
+      }
+      body = { numChunks: num };
+      numChunks = num;
+      confirmMsg = `${numChunks} chunks will be created.`;
+    } else if (rechunkMode === 'count') {
+      const parts = rechunkCountsStr.split(',').map((s) => parseInt(s.trim(), 10));
+      if (parts.length < 2 || parts.some((n) => Number.isNaN(n) || n < 1)) {
+        setRechunkError('Enter at least 2 positive numbers (e.g. 5, 10, 15)');
+        return;
+      }
+      const sum = parts.reduce((a, b) => a + b, 0);
+      if (sum > totalInChunk) {
+        setRechunkError(`Sum of counts (${sum}) exceeds chunk size (${totalInChunk} records).`);
+        return;
+      }
+      body = { counts: parts };
+      numChunks = sum < totalInChunk ? parts.length + 1 : parts.length;
+      confirmMsg = `${numChunks} chunks will be created.`;
+      if (sum < totalInChunk) {
+        confirmMsg += ` The last chunk will have the remaining ${totalInChunk - sum} records.`;
+      }
+    } else {
+      const parts = rechunkPercentagesStr.split(',').map((s) => parseFloat(s.trim(), 10));
+      if (parts.length < 2 || parts.some((n) => Number.isNaN(n) || n < 0)) {
+        setRechunkError('Enter at least 2 numbers (e.g. 25, 50, 25)');
+        return;
+      }
+      const sum = parts.reduce((a, b) => a + b, 0);
+      if (Math.abs(sum - 100) > 0.01) {
+        setRechunkError('Percentages must sum to 100');
+        return;
+      }
+      body = { percentages: parts };
+      numChunks = parts.length;
+      confirmMsg = `${numChunks} chunks will be created.`;
+    }
+
+    setRechunkConfirmMessage(confirmMsg);
+    setRechunkConfirmBody(body);
+    setRechunkPendingConfirm(true);
+  };
+
+  const handleRechunkConfirm = () => {
+    if (!rechunkConfirmBody) return;
+    setRechunkSubmitting(true);
+    fetch(`/api/sessions/${id}/chunks/${chunkId}/rechunk`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rechunkConfirmBody),
+    })
+      .then((r) => {
+        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Re-chunk failed'); });
+        return r.json();
+      })
+      .then(() => {
+        setRechunkPendingConfirm(false);
+        setRechunkConfirmBody(null);
+        setRechunkConfirmMessage('');
+        setRechunkOpen(false);
+        setRechunkNumChunks('2');
+        setRechunkCountsStr('');
+        setRechunkPercentagesStr('');
+        navigate(`/sessions/${id}/chunks/${chunkId}`, { replace: true });
+      })
+      .catch((err) => setRechunkError(err.message))
+      .finally(() => setRechunkSubmitting(false));
+  };
+
+  const handleRechunkConfirmCancel = () => {
+    setRechunkPendingConfirm(false);
+    setRechunkConfirmBody(null);
+    setRechunkConfirmMessage('');
+  };
+
   if (!claimed) {
     const storedName = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(CLAIMANT_STORAGE_KEY(id)) : null;
     const mayResume = (storedName?.trim() || location.state?.resumeWithName?.trim());
@@ -414,11 +516,11 @@ export default function ChunkEditor() {
       return (
         <>
           <div className="chunk-editor-back">
-            <button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })}>← BACK</button>
+            <button type="button" className="btn-nav" onClick={() => navigate(parentChunkId != null ? `/sessions/${id}/chunks/${parentChunkId}` : `/sessions/${id}`, { replace: true })}>← BACK</button>
           </div>
           <div className="card">
             <header className="chunk-editor-header">
-              <h1>Chunk {Number(chunkIndex) + 1}</h1>
+              <h1>Chunk</h1>
             </header>
             <p className="chunk-editor-loading">{mayResume ? 'Resuming...' : 'Loading...'}</p>
           </div>
@@ -428,11 +530,11 @@ export default function ChunkEditor() {
     return (
       <>
         <div className="chunk-editor-back">
-          <button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })}>← BACK</button>
+          <button type="button" className="btn-nav" onClick={() => navigate(parentChunkId != null ? `/sessions/${id}/chunks/${parentChunkId}` : `/sessions/${id}`, { replace: true })}>← BACK</button>
         </div>
         <div className="card">
           <header className="chunk-editor-header">
-            <h1>Chunk {Number(chunkIndex) + 1}</h1>
+            <h1>Chunk</h1>
             {chunkTag?.trim() && (
               <div className="chunk-editor-meta">
                 <span>Tag: <strong>{chunkTag.trim()}</strong></span>
@@ -493,13 +595,13 @@ export default function ChunkEditor() {
         </div>
       )}
       <div className="chunk-editor-back">
-        <button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })} aria-label="Back to project">
+        <button type="button" className="btn-nav" onClick={() => navigate(backUrl, { replace: true })} aria-label={parentChunkId != null ? 'Back to parent chunk' : 'Back to project'}>
           ← BACK
         </button>
       </div>
       <div className="card chunk-editor-card">
       <header className="chunk-editor-header">
-        <h1>Chunk {Number(chunkIndex) + 1}{rangeStr ? ` (records ${rangeStr})` : ''}</h1>
+        <h1>Chunk{rangeStr ? ` (records ${rangeStr})` : ''}</h1>
         <div className="chunk-editor-meta">
           {chunkTag?.trim() && (
             <span>Tag: <strong>{chunkTag.trim()}</strong></span>
@@ -586,7 +688,7 @@ export default function ChunkEditor() {
                                 }));
                                 setTimeout(() => handleSetValue(row.rowOffsetInChunk, opt), 100);
                               } else if (autoAdvance && data.rows.length === 1 && offset + 1 < data.totalInChunk) {
-                                fetch(`/api/sessions/${id}/chunks/${chunkIndex}/rows-viewed`, {
+                                fetch(`/api/sessions/${id}/chunks/${chunkId}/rows-viewed`, {
                                   method: 'PUT',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ name: name.trim(), rowOffsets: [row.rowOffsetInChunk] }),
@@ -635,7 +737,7 @@ export default function ChunkEditor() {
                 </button>
                 {(() => {
                   if (typeof sessionStorage === 'undefined' || !data.totalInChunk) return null;
-                  const v = sessionStorage.getItem(LAST_UPDATED_ROW_KEY(id, chunkIndex));
+                  const v = sessionStorage.getItem(LAST_UPDATED_ROW_KEY(id, chunkId));
                   const rowOff = v != null ? parseInt(v, 10) : NaN;
                   if (Number.isNaN(rowOff) || rowOff < 0 || rowOff >= data.totalInChunk) return null;
                   const displayRow = data.chunkStartRow != null ? data.chunkStartRow + rowOff + 1 : rowOff + 1;
@@ -712,6 +814,119 @@ export default function ChunkEditor() {
           </div>
         </>
       )}
+      </div>
+      <div className="card rechunk-widget-card">
+        <header className="rechunk-widget-header">
+          <h2 className="rechunk-widget-title">Re-chunk</h2>
+        </header>
+        <p className="rechunk-widget-desc">Split this chunk into smaller sub-chunks. You will be taken to the new sub-chunks after splitting.</p>
+        {data.totalInChunk != null && data.totalInChunk > 0 && (
+          <p className="rechunk-widget-stats" aria-label="Chunk stats">
+            <strong>{data.totalInChunk}</strong> record{data.totalInChunk !== 1 ? 's' : ''}
+            {rangeStr ? (
+              <span className="rechunk-widget-stats-range"> (records {rangeStr})</span>
+            ) : null}
+          </p>
+        )}
+        {rechunkOpen ? (
+          <div className="rechunk-widget-form">
+            <fieldset className="rechunk-widget-modes">
+              <legend className="rechunk-widget-legend">Split by</legend>
+              <label className="rechunk-widget-radio">
+                <input
+                  type="radio"
+                  name="rechunkMode"
+                  value="equal"
+                  checked={rechunkMode === 'equal'}
+                  onChange={() => { setRechunkMode('equal'); setRechunkError(''); }}
+                />
+                <span>Equal</span>
+              </label>
+              <label className="rechunk-widget-radio">
+                <input
+                  type="radio"
+                  name="rechunkMode"
+                  value="count"
+                  checked={rechunkMode === 'count'}
+                  onChange={() => { setRechunkMode('count'); setRechunkError(''); }}
+                />
+                <span>Count (comma-separated)</span>
+              </label>
+              <label className="rechunk-widget-radio">
+                <input
+                  type="radio"
+                  name="rechunkMode"
+                  value="percentage"
+                  checked={rechunkMode === 'percentage'}
+                  onChange={() => { setRechunkMode('percentage'); setRechunkError(''); }}
+                />
+                <span>Percentage (comma-separated)</span>
+              </label>
+            </fieldset>
+            {rechunkMode === 'equal' && (
+              <label className="rechunk-widget-label">
+                Number of sub-chunks
+                <input
+                  type="number"
+                  min={2}
+                  value={rechunkNumChunks}
+                  onChange={(e) => { setRechunkNumChunks(e.target.value); setRechunkError(''); }}
+                  className="rechunk-widget-input"
+                  aria-label="Number of sub-chunks"
+                />
+              </label>
+            )}
+            {rechunkMode === 'count' && (
+              <label className="rechunk-widget-label">
+                Row counts (e.g. 5, 10, 15)
+                <input
+                  type="text"
+                  value={rechunkCountsStr}
+                  onChange={(e) => { setRechunkCountsStr(e.target.value); setRechunkError(''); }}
+                  className="rechunk-widget-input rechunk-widget-input-wide"
+                  placeholder="5, 10, 15"
+                  aria-label="Row counts comma-separated"
+                />
+              </label>
+            )}
+            {rechunkMode === 'percentage' && (
+              <label className="rechunk-widget-label">
+                Percentages, sum to 100 (e.g. 25, 50, 25)
+                <input
+                  type="text"
+                  value={rechunkPercentagesStr}
+                  onChange={(e) => { setRechunkPercentagesStr(e.target.value); setRechunkError(''); }}
+                  className="rechunk-widget-input rechunk-widget-input-wide"
+                  placeholder="25, 50, 25"
+                  aria-label="Percentages comma-separated"
+                />
+              </label>
+            )}
+            {rechunkError && <p className="chunk-editor-error" role="alert">{rechunkError}</p>}
+            {rechunkPendingConfirm ? (
+              <div className="rechunk-widget-confirm">
+                <p className="rechunk-widget-confirm-msg">{rechunkConfirmMessage}</p>
+                <div className="rechunk-widget-actions">
+                  <button type="button" className="btn-nav" onClick={handleRechunkConfirm} disabled={rechunkSubmitting}>
+                    {rechunkSubmitting ? 'Splitting…' : 'Confirm'}
+                  </button>
+                  <button type="button" onClick={handleRechunkConfirmCancel} disabled={rechunkSubmitting}>Back</button>
+                </div>
+              </div>
+            ) : (
+              <div className="rechunk-widget-actions">
+                <button type="button" className="btn-nav" onClick={handleRechunk} disabled={rechunkSubmitting}>
+                  {rechunkSubmitting ? 'Splitting…' : 'Split'}
+                </button>
+                <button type="button" onClick={() => { setRechunkOpen(false); setRechunkError(''); setRechunkPendingConfirm(false); setRechunkConfirmBody(null); setRechunkConfirmMessage(''); }}>Cancel</button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <button type="button" className="btn-link rechunk-widget-trigger" onClick={() => setRechunkOpen(true)}>
+            Split this chunk
+          </button>
+        )}
       </div>
     </>
   );

@@ -35,9 +35,11 @@ CREATE TABLE IF NOT EXISTS session_rows (
   PRIMARY KEY (session_id, row_index)
 );
 
--- Chunks: derived from session chunk range + chunk_sizes
+-- Chunks: hierarchical; parent_id NULL = top-level, chunk_index = sibling order
 CREATE TABLE IF NOT EXISTS chunks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  parent_id INTEGER REFERENCES chunks(id) ON DELETE CASCADE,
   chunk_index INTEGER NOT NULL,
   start_row INTEGER NOT NULL,
   end_row INTEGER NOT NULL,
@@ -45,9 +47,9 @@ CREATE TABLE IF NOT EXISTS chunks (
   claimed_at TEXT,
   status TEXT NOT NULL DEFAULT 'unclaimed',
   completed_at TEXT,
-  tag TEXT,
-  PRIMARY KEY (session_id, chunk_index)
+  tag TEXT
 );
+CREATE INDEX IF NOT EXISTS idx_chunks_parent ON chunks(session_id, parent_id);
 
 -- Row-level edits: only target column updated; user_edited=1 when user changed it, 0 when pre-populated
 CREATE TABLE IF NOT EXISTS row_edits (

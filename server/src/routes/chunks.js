@@ -3,72 +3,88 @@ import * as sessionService from '../services/sessionService.js';
 
 const router = Router({ mergeParams: true });
 
-// GET /api/sessions/:id/chunks
+// GET /api/sessions/:id/chunks?parentId= — omit parentId = top-level
 router.get('/', (req, res) => {
   const sessionId = Number(req.params.id);
   if (!sessionService.getSession(sessionId)) return res.status(404).json({ error: 'Session not found' });
-  const chunks = sessionService.getChunks(sessionId);
+  const parentId = req.query.parentId !== undefined && req.query.parentId !== ''
+    ? Number(req.query.parentId)
+    : null;
+  const chunks = sessionService.getChunks(sessionId, parentId);
   res.json(chunks);
 });
 
-// GET /api/sessions/:id/chunks/:chunkIndex — single chunk (for resume check)
-router.get('/:chunkIndex', (req, res) => {
+// PUT /api/sessions/:id/chunks/:chunkId/claim
+router.put('/:chunkId/claim', (req, res) => {
   const sessionId = Number(req.params.id);
-  const chunkIndex = Number(req.params.chunkIndex);
-  if (!sessionService.getSession(sessionId)) return res.status(404).json({ error: 'Session not found' });
-  const chunk = sessionService.getChunk(sessionId, chunkIndex);
-  if (!chunk) return res.status(404).json({ error: 'Chunk not found' });
-  res.json(chunk);
-});
-
-// PUT /api/sessions/:id/chunks/:chunkIndex/claim
-router.put('/:chunkIndex/claim', (req, res) => {
-  const sessionId = Number(req.params.id);
-  const chunkIndex = Number(req.params.chunkIndex);
+  const chunkId = Number(req.params.chunkId);
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'name required' });
-  const result = sessionService.claimChunk(sessionId, chunkIndex, name);
+  const result = sessionService.claimChunk(sessionId, chunkId, name);
   if (!result.ok) return res.status(409).json({ error: result.error });
   res.json({ ok: true });
 });
 
-// PUT /api/sessions/:id/chunks/:chunkIndex/complete
-router.put('/:chunkIndex/complete', (req, res) => {
+// PUT /api/sessions/:id/chunks/:chunkId/complete
+router.put('/:chunkId/complete', (req, res) => {
   const sessionId = Number(req.params.id);
-  const chunkIndex = Number(req.params.chunkIndex);
+  const chunkId = Number(req.params.chunkId);
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'name required' });
-  const result = sessionService.completeChunk(sessionId, chunkIndex, name);
+  const result = sessionService.completeChunk(sessionId, chunkId, name);
   if (!result.ok) return res.status(403).json({ error: result.error });
   res.json({ ok: true });
 });
 
-// PUT /api/sessions/:id/chunks/:chunkIndex/assignee — body: { currentName, newName }
-router.put('/:chunkIndex/assignee', (req, res) => {
+// PUT /api/sessions/:id/chunks/:chunkId/rechunk — body: { numChunks? } (equal) | { counts? } | { percentages? } (sum 100) | { chunkSize? } (legacy: rows per chunk)
+router.put('/:chunkId/rechunk', (req, res) => {
   const sessionId = Number(req.params.id);
-  const chunkIndex = Number(req.params.chunkIndex);
+  const chunkId = Number(req.params.chunkId);
+  let { numChunks, counts, percentages, chunkSize } = req.body || {};
+  // Legacy: chunkSize (rows per chunk) → derive numChunks
+  if (numChunks == null && counts == null && percentages == null && chunkSize != null) {
+    const chunk = sessionService.getChunk(sessionId, chunkId);
+    if (!chunk) return res.status(404).json({ error: 'Chunk not found' });
+    const rangeLength = (chunk.end_row ?? 0) - (chunk.start_row ?? 0);
+    const size = Math.max(1, parseInt(chunkSize, 10));
+    if (Number.isNaN(size)) return res.status(400).json({ error: 'numChunks, counts, or percentages required' });
+    numChunks = Math.ceil(rangeLength / size);
+    if (numChunks < 2) numChunks = 2;
+  }
+  if (numChunks == null && counts == null && percentages == null) {
+    return res.status(400).json({ error: 'numChunks, counts, or percentages required' });
+  }
+  const result = sessionService.rechunkChunk(sessionId, chunkId, { numChunks, counts, percentages });
+  if (!result.ok) return res.status(400).json({ error: result.error });
+  res.json({ ok: true });
+});
+
+// PUT /api/sessions/:id/chunks/:chunkId/assignee — body: { currentName, newName }
+router.put('/:chunkId/assignee', (req, res) => {
+  const sessionId = Number(req.params.id);
+  const chunkId = Number(req.params.chunkId);
   const { currentName, newName } = req.body;
   if (!currentName || newName === undefined) return res.status(400).json({ error: 'currentName and newName required' });
-  const result = sessionService.updateChunkAssignee(sessionId, chunkIndex, currentName, newName);
+  const result = sessionService.updateChunkAssignee(sessionId, chunkId, currentName, newName);
   if (!result.ok) return res.status(403).json({ error: result.error });
   res.json({ ok: true });
 });
 
-// PUT /api/sessions/:id/chunks/:chunkIndex/tag — body: { tag } (string, optional)
-router.put('/:chunkIndex/tag', (req, res) => {
+// PUT /api/sessions/:id/chunks/:chunkId/tag — body: { tag } (string, optional)
+router.put('/:chunkId/tag', (req, res) => {
   const sessionId = Number(req.params.id);
-  const chunkIndex = Number(req.params.chunkIndex);
+  const chunkId = Number(req.params.chunkId);
   if (!sessionService.getSession(sessionId)) return res.status(404).json({ error: 'Session not found' });
   const tag = req.body.tag !== undefined ? req.body.tag : '';
-  const result = sessionService.updateChunkTag(sessionId, chunkIndex, tag);
+  const result = sessionService.updateChunkTag(sessionId, chunkId, tag);
   if (!result.ok) return res.status(404).json({ error: result.error });
   res.json({ ok: true });
 });
 
-// GET /api/sessions/:id/chunks/:chunkIndex/row/:rowOffset — ?limit=N
-router.get('/:chunkIndex/row/:rowOffset', (req, res) => {
+// GET /api/sessions/:id/chunks/:chunkId/row/:rowOffset — ?limit=N
+router.get('/:chunkId/row/:rowOffset', (req, res) => {
   const sessionId = Number(req.params.id);
-  const chunkIndex = Number(req.params.chunkIndex);
+  const chunkId = Number(req.params.chunkId);
   const rowOffset = Number(req.params.rowOffset);
   const limit = Math.min(Math.max(1, parseInt(req.query.limit || '1', 10)), 100);
 
@@ -77,13 +93,13 @@ router.get('/:chunkIndex/row/:rowOffset', (req, res) => {
   const config = sessionService.getSessionConfig(sessionId);
   if (!config) return res.status(400).json({ error: 'Session not configured' });
 
-  const range = sessionService.getChunkRowRange(sessionId, chunkIndex);
+  const range = sessionService.getChunkRowRange(sessionId, chunkId);
   if (!range) return res.status(404).json({ error: 'Chunk not found' });
   const totalInChunk = range.endRow - range.startRow;
   if (rowOffset < 0 || rowOffset >= totalInChunk) {
     return res.status(400).json({ error: 'rowOffset out of range' });
   }
-  const chunk = sessionService.getChunk(sessionId, chunkIndex);
+  const chunk = sessionService.getChunk(sessionId, chunkId);
   const labeledInChunk = chunk?.rowsEditedInChunk ?? 0;
 
   const startRow = range.startRow + rowOffset;
@@ -129,38 +145,48 @@ router.get('/:chunkIndex/row/:rowOffset', (req, res) => {
   });
 });
 
-// PUT /api/sessions/:id/chunks/:chunkIndex/rows-viewed — body: { name, rowOffsets: number[] }
-router.put('/:chunkIndex/rows-viewed', (req, res) => {
+// PUT /api/sessions/:id/chunks/:chunkId/rows-viewed — body: { name, rowOffsets: number[] }
+router.put('/:chunkId/rows-viewed', (req, res) => {
   const sessionId = Number(req.params.id);
-  const chunkIndex = Number(req.params.chunkIndex);
+  const chunkId = Number(req.params.chunkId);
   const { name, rowOffsets } = req.body;
   if (!name || !Array.isArray(rowOffsets)) return res.status(400).json({ error: 'name and rowOffsets required' });
-  const result = sessionService.markRowsAsViewed(sessionId, chunkIndex, name, rowOffsets);
+  const result = sessionService.markRowsAsViewed(sessionId, chunkId, name, rowOffsets);
   if (!result.ok) return res.status(403).json({ error: result.error });
   res.json({ ok: true });
 });
 
-// PUT /api/sessions/:id/chunks/:chunkIndex/row/:rowOffset
-router.put('/:chunkIndex/row/:rowOffset', (req, res) => {
+// PUT /api/sessions/:id/chunks/:chunkId/row/:rowOffset
+router.put('/:chunkId/row/:rowOffset', (req, res) => {
   const sessionId = Number(req.params.id);
-  const chunkIndex = Number(req.params.chunkIndex);
+  const chunkId = Number(req.params.chunkId);
   const rowOffset = Number(req.params.rowOffset);
   const { name, targetValue } = req.body;
   if (!name || targetValue === undefined) return res.status(400).json({ error: 'name and targetValue required' });
 
-  const assignee = sessionService.getChunkAssignee(sessionId, chunkIndex);
+  const assignee = sessionService.getChunkAssignee(sessionId, chunkId);
   if (assignee !== name) return res.status(403).json({ error: 'Not your chunk' });
 
-  const range = sessionService.getChunkRowRange(sessionId, chunkIndex);
+  const range = sessionService.getChunkRowRange(sessionId, chunkId);
   if (!range) return res.status(404).json({ error: 'Chunk not found' });
   const totalInChunk = range.endRow - range.startRow;
   if (rowOffset < 0 || rowOffset >= totalInChunk) return res.status(400).json({ error: 'rowOffset out of range' });
 
   const rowIndex = range.startRow + rowOffset;
   sessionService.saveRowEdit(sessionId, rowIndex, String(targetValue));
-  const chunk = sessionService.getChunk(sessionId, chunkIndex);
+  const chunk = sessionService.getChunk(sessionId, chunkId);
   const labeledInChunk = Number(chunk?.rowsEditedInChunk ?? 0);
   res.json({ ok: true, rowIndex, nextOffset: rowOffset + 1, labeledInChunk });
+});
+
+// GET /api/sessions/:id/chunks/:chunkId — single chunk (after more specific :chunkId/... routes)
+router.get('/:chunkId', (req, res) => {
+  const sessionId = Number(req.params.id);
+  const chunkId = Number(req.params.chunkId);
+  if (!sessionService.getSession(sessionId)) return res.status(404).json({ error: 'Session not found' });
+  const chunk = sessionService.getChunk(sessionId, chunkId);
+  if (!chunk) return res.status(404).json({ error: 'Chunk not found' });
+  res.json(chunk);
 });
 
 export default router;

@@ -1,35 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 
-function formatDate(isoStr) {
-  if (!isoStr) return '–';
-  const d = new Date(isoStr);
-  if (Number.isNaN(d.getTime())) return '–';
-  const now = new Date();
-  const isToday = d.toDateString() === now.toDateString();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const isYesterday = d.toDateString() === yesterday.toDateString();
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  if (isToday) return `Today, ${time}`;
-  if (isYesterday) return `Yesterday, ${time}`;
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + `, ${time}`;
-}
-
-export default function SessionDetail() {
-  const { id } = useParams();
+export default function ChunkDetail() {
+  const { id, chunkId } = useParams();
   const navigate = useNavigate();
   const [session, setSession] = useState(null);
-  const [stats, setStats] = useState(null);
+  const [chunk, setChunk] = useState(null);
   const [chunks, setChunks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState('');
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteStep, setDeleteStep] = useState('confirm'); // 'confirm' | 'pin'
-  const [deletePin, setDeletePin] = useState('');
-  const [deleteError, setDeleteError] = useState('');
-  const [deleting, setDeleting] = useState(false);
   const [editingTagChunkId, setEditingTagChunkId] = useState(null);
   const [tagSavingChunkId, setTagSavingChunkId] = useState(null);
   const [editingAssigneeChunkId, setEditingAssigneeChunkId] = useState(null);
@@ -37,7 +15,10 @@ export default function SessionDetail() {
   const [rechunkChunkId, setRechunkChunkId] = useState(null);
   const [rechunkNumChunks, setRechunkNumChunks] = useState('2');
   const [rechunkSubmitting, setRechunkSubmitting] = useState(false);
-  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [parentAssigneeName, setParentAssigneeName] = useState('');
+  const [parentAssigneeSaving, setParentAssigneeSaving] = useState(false);
+  const [completeSubmitting, setCompleteSubmitting] = useState(false);
+  const [completeError, setCompleteError] = useState('');
   const tagInputRef = useRef(null);
   const assigneeInputRef = useRef(null);
 
@@ -45,12 +26,12 @@ export default function SessionDetail() {
     setLoading(true);
     Promise.all([
       fetch(`/api/sessions/${id}`).then((r) => r.json()),
-      fetch(`/api/sessions/${id}/stats`).then((r) => r.json()),
-      fetch(`/api/sessions/${id}/chunks`).then((r) => r.json()),
+      fetch(`/api/sessions/${id}/chunks/${chunkId}`).then((r) => r.json()),
+      fetch(`/api/sessions/${id}/chunks?parentId=${chunkId}`).then((r) => r.json()),
     ])
-      .then(([s, st, ch]) => {
+      .then(([s, c, ch]) => {
         setSession(s);
-        setStats(st);
+        setChunk(c);
         setChunks(ch);
       })
       .catch(console.error)
@@ -59,9 +40,11 @@ export default function SessionDetail() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 10000);
-    return () => clearInterval(t);
-  }, [id]);
+  }, [id, chunkId]);
+
+  useEffect(() => {
+    if (chunk?.assignee_name != null) setParentAssigneeName((chunk.assignee_name || '').trim());
+  }, [chunk?.assignee_name]);
 
   useEffect(() => {
     if (editingTagChunkId != null) tagInputRef.current?.focus();
@@ -71,69 +54,18 @@ export default function SessionDetail() {
     if (editingAssigneeChunkId != null) assigneeInputRef.current?.focus();
   }, [editingAssigneeChunkId]);
 
-  const handleDelete = () => {
-    setDeleting(true);
-    setDeleteError('');
-    fetch(`/api/sessions/${id}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin: deletePin }),
-    })
-      .then((r) => {
-        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Delete failed'); });
-        return r.json();
-      })
-      .then(() => {
-        setDeleteConfirmOpen(false);
-        setDeletePin('');
-        navigate('/');
-      })
-      .catch((err) => setDeleteError(err.message))
-      .finally(() => setDeleting(false));
-  };
+  // If chunk is leaf (no children), redirect to editor
+  useEffect(() => {
+    if (!loading && chunk && (chunk.childCount ?? 0) === 0) {
+      navigate(`/sessions/${id}/chunks/${chunkId}/edit`, { replace: true });
+    }
+  }, [loading, chunk, id, chunkId, navigate]);
 
-  const handleStatusChange = (newStatus) => {
-    setStatusUpdating(true);
-    fetch(`/api/sessions/${id}/status`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus }),
-    })
-      .then((r) => {
-        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Failed to update status'); });
-        return r.json();
-      })
-      .then(() => {
-        setSession((s) => s ? { ...s, status: newStatus } : s);
-      })
-      .catch((err) => setExportError(err.message))
-      .finally(() => setStatusUpdating(false));
-  };
-
-  const handleExport = () => {
-    setExporting(true);
-    setExportError('');
-    fetch(`/api/sessions/${id}/export`)
-      .then((r) => {
-        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Export failed'); });
-        return r.blob();
-      })
-      .then((blob) => {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `export-${id}.xlsx`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-      })
-      .catch((err) => setExportError(err.message))
-      .finally(() => setExporting(false));
-  };
-
-  const handleSaveTag = (chunkId, value) => {
+  const handleSaveTag = (cid, value) => {
     const tag = (value ?? '').trim();
     setEditingTagChunkId(null);
-    setTagSavingChunkId(chunkId);
-    fetch(`/api/sessions/${id}/chunks/${chunkId}/tag`, {
+    setTagSavingChunkId(cid);
+    fetch(`/api/sessions/${id}/chunks/${cid}/tag`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tag }),
@@ -143,16 +75,16 @@ export default function SessionDetail() {
         return r.json();
       })
       .then(() => {
-        setChunks((prev) => prev.map((c) => (c.id === chunkId ? { ...c, tag } : c)));
+        setChunks((prev) => prev.map((c) => (c.id === cid ? { ...c, tag } : c)));
       })
       .catch(console.error)
       .finally(() => setTagSavingChunkId(null));
   };
 
-  const handleTagKeyDown = (chunkId, currentValue, e) => {
+  const handleTagKeyDown = (cid, currentValue, e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleSaveTag(chunkId, currentValue);
+      handleSaveTag(cid, currentValue);
     }
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -160,12 +92,12 @@ export default function SessionDetail() {
     }
   };
 
-  const handleSaveAssignee = (chunkId, value, currentAssigneeName, isContainer) => {
+  const handleSaveAssignee = (cid, value, currentAssigneeName, isContainer) => {
     const name = (value ?? '').trim();
     setEditingAssigneeChunkId(null);
-    setAssigneeSavingChunkId(chunkId);
+    setAssigneeSavingChunkId(cid);
     const isClaim = !currentAssigneeName && !isContainer;
-    const url = `/api/sessions/${id}/chunks/${chunkId}/${isClaim ? 'claim' : 'assignee'}`;
+    const url = `/api/sessions/${id}/chunks/${cid}/${isClaim ? 'claim' : 'assignee'}`;
     const body = isClaim ? { name } : { currentName: currentAssigneeName, newName: name };
     if (isClaim && !name) {
       setAssigneeSavingChunkId(null);
@@ -185,17 +117,17 @@ export default function SessionDetail() {
         return r.json();
       })
       .then(() => {
-        setChunks((prev) => prev.map((c) => (c.id === chunkId ? { ...c, assignee_name: name, status: isClaim ? 'in_progress' : c.status } : c)));
+        setChunks((prev) => prev.map((c) => (c.id === cid ? { ...c, assignee_name: name, status: isClaim ? 'in_progress' : c.status } : c)));
         load();
       })
       .catch(console.error)
       .finally(() => setAssigneeSavingChunkId(null));
   };
 
-  const handleAssigneeKeyDown = (chunkId, currentValue, currentAssigneeName, isContainer, e) => {
+  const handleAssigneeKeyDown = (cid, currentValue, currentAssigneeName, isContainer, e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleSaveAssignee(chunkId, currentValue, currentAssigneeName, isContainer);
+      handleSaveAssignee(cid, currentValue, currentAssigneeName, isContainer);
     }
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -203,11 +135,11 @@ export default function SessionDetail() {
     }
   };
 
-  const handleRechunk = (chunkId) => {
+  const handleRechunk = (cid) => {
     const num = parseInt(rechunkNumChunks, 10);
     if (Number.isNaN(num) || num < 2) return;
     setRechunkSubmitting(true);
-    fetch(`/api/sessions/${id}/chunks/${chunkId}/rechunk`, {
+    fetch(`/api/sessions/${id}/chunks/${cid}/rechunk`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ numChunks: num }),
@@ -225,154 +157,105 @@ export default function SessionDetail() {
       .finally(() => setRechunkSubmitting(false));
   };
 
-  if (loading && !session) return <div className="card">Loading...</div>;
+  const handleSaveParentAssignee = (value) => {
+    const newName = (value ?? '').trim();
+    const currentName = (chunk?.assignee_name ?? '').trim();
+    if (newName === currentName || !newName) return;
+    setParentAssigneeSaving(true);
+    fetch(`/api/sessions/${id}/chunks/${chunkId}/assignee`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentName, newName }),
+    })
+      .then((r) => {
+        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Failed to update assignee'); });
+        return r.json();
+      })
+      .then(() => {
+        setChunk((prev) => (prev ? { ...prev, assignee_name: newName } : prev));
+      })
+      .catch(console.error)
+      .finally(() => setParentAssigneeSaving(false));
+  };
+
+  const handleCompleteParent = (e) => {
+    e?.preventDefault();
+    const name = (parentAssigneeName ?? '').trim();
+    if (!name) return;
+    setCompleteError('');
+    setCompleteSubmitting(true);
+    fetch(`/api/sessions/${id}/chunks/${chunkId}/complete`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+      .then((r) => {
+        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Failed to mark as completed'); });
+        return r.json();
+      })
+      .then(() => {
+        setChunk((prev) => (prev ? { ...prev, status: 'completed' } : prev));
+        load();
+      })
+      .catch((err) => setCompleteError(err.message))
+      .finally(() => setCompleteSubmitting(false));
+  };
+
+  if (loading && !chunk) return <div className="card">Loading...</div>;
   if (!session) return <div className="card">Project not found.</div>;
+  if (!chunk) return <div className="card">Chunk not found.</div>;
+  if ((chunk.childCount ?? 0) === 0) return <div className="card">Redirecting to editor...</div>;
 
   return (
     <div className="card">
       <header className="chunk-editor-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0 }}>{session.name?.trim() || `Project ${id}`}</h1>
-          <span className={`status-badge status-${session.status}`}>
-            {session.status === 'configured' ? 'Active' : session.status.charAt(0).toUpperCase() + session.status.slice(1)}
-          </span>
-        </div>
-        <div className="form-actions-buttons" style={{ margin: 0 }}>
-          {session.status === 'configured' && (
-            <>
+          <Link to={`/sessions/${id}`} replace className="link-action" style={{ marginRight: '0.5rem' }}>
+            ← Back to project
+          </Link>
+          <h1 style={{ margin: 0 }}>Chunk rows {chunk.start_row + 1}–{chunk.end_row}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginLeft: 'auto' }}>
+            {(chunk.assignee_name ?? '').trim() && (
+              <span className="chunk-editor-assignee" style={{ fontWeight: 600, color: '#334155' }} title="Edit parent chunk assignee">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <input
+                  type="text"
+                  value={parentAssigneeName}
+                  onChange={(e) => setParentAssigneeName(e.target.value)}
+                  onBlur={(e) => handleSaveParentAssignee(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.target.blur();
+                  }}
+                  disabled={parentAssigneeSaving}
+                  aria-label="Parent chunk assignee"
+                  className="name-input-editable"
+                  style={{
+                    width: '6rem', minWidth: '4rem', maxWidth: '12rem',
+                    padding: '0.2rem 0.4rem', fontSize: '0.9rem', fontWeight: 600,
+                    border: '1px solid transparent', borderRadius: 4, background: 'transparent', color: 'inherit',
+                  }}
+                />
+              </span>
+            )}
+            {chunk.status !== 'completed' && (chunk.assignee_name ?? '').trim() && (
               <button
                 type="button"
                 className="btn-success"
-                onClick={() => handleStatusChange('completed')}
-                disabled={statusUpdating}
+                onClick={handleCompleteParent}
+                disabled={completeSubmitting || !(parentAssigneeName ?? '').trim()}
               >
-                Mark Completed
+                {completeSubmitting ? 'Marking...' : 'Mark parent as completed'}
               </button>
-              <button
-                type="button"
-                className="btn-warning"
-                onClick={() => handleStatusChange('discarded')}
-                disabled={statusUpdating}
-              >
-                Discard
-              </button>
-            </>
-          )}
-          {(session.status === 'completed' || session.status === 'discarded') && (
-            <button
-              type="button"
-              className="btn-nav"
-              onClick={() => handleStatusChange('configured')}
-              disabled={statusUpdating}
-            >
-              Reopen
-            </button>
-          )}
-          <button className="primary" onClick={handleExport} disabled={exporting}>
-            {exporting ? 'Exporting...' : 'Export Excel'}
-          </button>
-          <button
-            type="button"
-            className="btn-danger"
-            onClick={() => { setDeleteConfirmOpen(true); setDeleteStep('confirm'); setDeletePin(''); setDeleteError(''); }}
-          >
-            Delete
-          </button>
+            )}
+          </div>
         </div>
+        {completeError && <p style={{ color: '#dc2626', margin: '0.5rem 0 0' }}>{completeError}</p>}
       </header>
-      {exportError && <p style={{ color: '#dc2626', margin: '0.5rem 0 0' }}>{exportError}</p>}
 
-      {stats && (
-        <div className="card card-stats" style={{ marginTop: '1.5rem' }}>
-          <h2>Stats</h2>
-          <div className="stats-grid">
-            {session.original_filename && (
-              <p>Original file: <strong>{session.original_filename}</strong></p>
-            )}
-            {session.creator_name && (
-              <p>Creator: <strong>{session.creator_name}</strong></p>
-            )}
-            <p>
-              Created: <strong>{formatDate(session.created_at)}</strong>
-              {' · '}
-              Updated: <strong>{formatDate(session.updated_at)}</strong>
-            </p>
-            <p>
-              Total chunks: <strong>{stats.totalChunks}</strong>
-              {' · '}
-              Completed: <strong>{stats.chunksCompleted}</strong>
-              {' · '}
-              In progress: <strong>{stats.chunksInProgress}</strong>
-              {' · '}
-              Unclaimed: <strong>{stats.chunksUnclaimed}</strong>
-            </p>
-            <p>
-              Records edited: <strong>{stats.rowsEdited}</strong> / {stats.totalRows}
-              {' · '}
-              Completion: <strong>{stats.completionPct}%</strong> (chunks)
-            </p>
-          </div>
-          <div className="progress-bar">
-            <div className="progress-bar-fill" style={{ width: `${stats.completionPct}%` }} />
-          </div>
-        </div>
-      )}
-
-      <h2>Chunks</h2>
-      {deleteConfirmOpen && (
-        <div className="card card-warning">
-          {deleteStep === 'confirm' ? (
-            <>
-              <h3>Delete project?</h3>
-              <p>Are you sure you want to delete this project? This cannot be undone.</p>
-              <div className="form-actions-buttons" style={{ marginTop: '0.75rem' }}>
-                <button type="button" className="btn-danger" onClick={() => { setDeleteStep('pin'); setDeleteError(''); }}>
-                  Yes, continue
-                </button>
-                <button type="button" onClick={() => { setDeleteConfirmOpen(false); setDeleteStep('confirm'); }}>
-                  Cancel
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <h3>Delete project</h3>
-              <p>PIN is required to delete. Enter the PIN you set when creating this project, or the default PIN if you did not set one.</p>
-              {deleteError && <p style={{ color: '#dc2626', margin: '0.5rem 0 0' }}>{deleteError}</p>}
-              <div className="form-field" style={{ marginTop: '0.75rem', maxWidth: '20rem' }}>
-                <label htmlFor="delete-pin" style={{ flex: '0 0 3rem' }}>PIN:</label>
-                <input
-                  id="delete-pin"
-                  type="password"
-                  value={deletePin}
-                  onChange={(e) => setDeletePin(e.target.value)}
-                  placeholder="Delete PIN (required)"
-                  autoComplete="off"
-                  className="form-input"
-                  style={{ flex: '1 1 10rem' }}
-                />
-              </div>
-              <div className="form-actions-buttons" style={{ marginTop: '0.75rem' }}>
-                <button
-                  type="button"
-                  className="btn-danger"
-                  onClick={handleDelete}
-                  disabled={deleting || !deletePin.trim()}
-                >
-                  {deleting ? 'Deleting...' : 'Delete'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setDeleteConfirmOpen(false); setDeletePin(''); setDeleteError(''); }}
-                  disabled={deleting}
-                >
-                  Cancel
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+      <h2>Sub-chunks</h2>
       <div className="table-wrap">
         <table className="data-table">
           <thead>
