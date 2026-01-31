@@ -21,7 +21,7 @@ export default function App() {
     <ApiStatusContext.Provider value={{ apiStatus, setApiStatus }}>
       <header className="app-header">
         <div className="app-header-inner">
-          <Link to="/" className="app-logo">Excel Labeller</Link>
+          <Link to="/" className="app-logo">Excel Data Labeller</Link>
           <nav className="app-nav">
             <Link to="/" className={isActive('/') && !location.pathname.startsWith('/create') && !location.pathname.startsWith('/compare') ? 'active' : ''}>Sessions</Link>
             <Link to="/compare" className={isActive('/compare') ? 'active' : ''}>Compare</Link>
