@@ -183,13 +183,15 @@ export default function ChunkDetail() {
 
   return (
     <div className="card">
-      <header className="chunk-editor-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <Link to={`/sessions/${id}`} replace className="link-action" style={{ marginRight: '0.5rem' }}>
-            ← Back to project
-          </Link>
-          <h1 style={{ margin: 0 }}>Chunk rows {chunk.start_row + 1}–{chunk.end_row}</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginLeft: 'auto' }}>
+      <header className="chunk-editor-header chunk-detail-header">
+        <div className="chunk-detail-header-row">
+          <div className="chunk-detail-header-left">
+            <Link to={`/sessions/${id}`} replace className="link-action chunk-detail-back">
+              ← Back to project
+            </Link>
+            <h1 className="chunk-detail-title">Chunk rows {chunk.start_row + 1}–{chunk.end_row}</h1>
+          </div>
+          <div className="chunk-detail-header-meta">
             {(chunk.assignee_name ?? '').trim() && (
               <span className="chunk-editor-assignee" style={{ fontWeight: 600, color: '#334155' }} title="Edit parent chunk assignee">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -208,7 +210,9 @@ export default function ChunkDetail() {
                   aria-label="Parent chunk assignee"
                   className="name-input-editable"
                   style={{
-                    width: '6rem', minWidth: '4rem', maxWidth: '12rem',
+                    width: `${Math.max(6, Math.min((parentAssigneeName?.length ?? 0) + 2, 42))}ch`,
+                    minWidth: '4rem',
+                    maxWidth: '24rem',
                     padding: '0.2rem 0.4rem', fontSize: '0.9rem', fontWeight: 600,
                     border: '1px solid transparent', borderRadius: 4, background: 'transparent', color: 'inherit',
                   }}
@@ -218,7 +222,7 @@ export default function ChunkDetail() {
             {chunk.status !== 'completed' && (chunk.assignee_name ?? '').trim() && (
               <button
                 type="button"
-                className="btn-success"
+                className="btn-success chunk-detail-complete-btn"
                 onClick={handleCompleteParent}
                 disabled={completeSubmitting || !(parentAssigneeName ?? '').trim()}
               >
@@ -290,36 +294,51 @@ export default function ChunkDetail() {
                         </span>
                         <button
                           type="button"
-                          className="btn-link"
+                          className="btn-link chunk-edit-icon-btn"
                           onClick={(e) => { e.stopPropagation(); setEditingAssigneeChunkId(ch.id); }}
-                          style={{ marginLeft: '0.35rem', fontSize: '0.8125rem' }}
+                          aria-label="Edit assignee"
+                          title="Edit assignee"
                         >
-                          Edit
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
                         </button>
                       </>
                     )}
                   </td>
-                  <td onClick={(e) => e.stopPropagation()}>
+                  <td>
                     {editingTagChunkId === ch.id ? (
-                      <input
-                        ref={tagInputRef}
-                        type="text"
-                        defaultValue={ch.tag ?? ''}
-                        disabled={tagSavingChunkId === ch.id}
-                        onBlur={() => handleSaveTag(ch.id, tagInputRef.current?.value)}
-                        onKeyDown={(e) => handleTagKeyDown(ch.id, tagInputRef.current?.value, e)}
-                        placeholder="Tag"
-                        style={{ width: '100%', minWidth: '6rem', boxSizing: 'border-box' }}
-                      />
+                      <span onClick={(e) => e.stopPropagation()}>
+                        <input
+                          ref={tagInputRef}
+                          type="text"
+                          defaultValue={ch.tag ?? ''}
+                          disabled={tagSavingChunkId === ch.id}
+                          onBlur={() => handleSaveTag(ch.id, tagInputRef.current?.value)}
+                          onKeyDown={(e) => handleTagKeyDown(ch.id, tagInputRef.current?.value, e)}
+                          placeholder="Tag"
+                          style={{ width: '100%', minWidth: '6rem', boxSizing: 'border-box' }}
+                        />
+                      </span>
                     ) : (
-                      <button
-                        type="button"
-                        className="btn-link"
-                        onClick={() => setEditingTagChunkId(ch.id)}
-                        style={{ color: (ch.tag ?? '').trim() ? 'inherit' : '#94a3b8' }}
-                      >
-                        {(ch.tag ?? '').trim() || 'Add tag'}
-                      </button>
+                      <>
+                        <span style={{ color: (ch.tag ?? '').trim() ? 'inherit' : '#94a3b8' }}>
+                          {(ch.tag ?? '').trim() || '–'}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn-link chunk-edit-icon-btn"
+                          onClick={(e) => { e.stopPropagation(); setEditingTagChunkId(ch.id); }}
+                          aria-label="Edit tag"
+                          title="Edit tag"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </button>
+                      </>
                     )}
                   </td>
                   <td>{ch.rowsEditedInChunk ?? 0} / {ch.rowsInChunk ?? (ch.end_row - ch.start_row)}</td>

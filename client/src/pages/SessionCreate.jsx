@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useBlocker } from 'react-router-dom';
+import ChunkingWidget from '../components/ChunkingWidget';
 
 const STEPS = ['Upload', 'Choose sheet', 'Chunking', 'Choose columns', 'Configure label'];
 
@@ -193,8 +194,6 @@ export default function SessionCreate() {
         setTotalRows(rows);
         setChunkRangeStart(1);
         setChunkRangeEnd(rows);
-        // Default chunk size: aim for ~10 chunks, clamped 5–200
-        setEqualSize(Math.min(200, Math.max(5, Math.ceil(rows / 10))));
         setStep(3);
       })
       .catch((err) => setError(err.message || 'Failed'))
@@ -203,12 +202,10 @@ export default function SessionCreate() {
 
   const [chunkRangeStart, setChunkRangeStart] = useState(1);
   const [chunkRangeEnd, setChunkRangeEnd] = useState(0);
-  const [sizeMode, setSizeMode] = useState('equal');
-  const [equalSize, setEqualSize] = useState(100);
-  const [chunkSizesText, setChunkSizesText] = useState('');
 
-  const handleChunking = (e) => {
-    e.preventDefault();
+  const rangeLength = Math.max(0, (Number(chunkRangeEnd) || totalRows) - (Number(chunkRangeStart) || 1) + 1);
+
+  const handleChunkingFromWidget = (body) => {
     setFieldErrors({});
     const from = Number(chunkRangeStart) || 1;
     const to = Number(chunkRangeEnd) || totalRows;
@@ -216,51 +213,21 @@ export default function SessionCreate() {
       setFieldErrors({ chunkRange: `Range must be from 1 to ${totalRows}, and from ≤ to (records)` });
       return;
     }
-    const rangeLength = to - from + 1;
-    let chunkSizes = [];
-    if (sizeMode === 'equal') {
-      const size = Math.min(Math.max(1, parseInt(equalSize, 10)), 10000);
-      if (size > rangeLength) {
-        setFieldErrors({ chunkSize: `Chunk size ${size} exceeds range length ${rangeLength}` });
-        return;
-      }
-      chunkSizes = [size];
-    } else {
-      chunkSizes = chunkSizesText
-        .split(/[\s,]+/)
-        .map((s) => parseInt(s.trim(), 10))
-        .filter((n) => !Number.isNaN(n) && n > 0);
-      if (chunkSizes.length === 0) {
-        setFieldErrors({ chunkSize: 'Enter at least one chunk size (comma-separated numbers)' });
-        return;
-      }
-      for (const s of chunkSizes) {
-        if (s > rangeLength) {
-          setFieldErrors({ chunkSize: `Chunk size ${s} exceeds range length ${rangeLength}` });
-          return;
-        }
-      }
-      const sum = chunkSizes.reduce((a, b) => a + b, 0);
-      if (sum > rangeLength) {
-        setFieldErrors({ chunkSize: `Sum of chunk sizes (${sum}) exceeds chosen records (${rangeLength})` });
-        return;
-      }
+    if (!body.chunkSizes || !Array.isArray(body.chunkSizes) || body.chunkSizes.length === 0) {
+      setFieldErrors({ chunkSize: 'Choose a split mode and enter values' });
+      return;
     }
+    const payload = { chunkRange: { start: from, end: to }, chunkSizes: body.chunkSizes };
     setLoading(true);
     setError('');
     fetch(`/api/sessions/${sessionId}/chunking`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(
-        sizeMode === 'equal'
-          ? { chunkRange: { start: from, end: to }, equalSize: chunkSizes[0] }
-          : { chunkRange: { start: from, end: to }, chunkSizes }
-      ),
+      body: JSON.stringify(payload),
     })
       .then(parseJsonResponse)
       .then(() => {
         setStep(4);
-        // Default columns: first for left panel, last for target (if 2+ columns)
         if (headers.length > 0) {
           setLeftColumns([headers[0]]);
           setTargetColumn(headers.length >= 2 ? headers[headers.length - 1] : '');
@@ -269,38 +236,6 @@ export default function SessionCreate() {
       .catch((err) => setError(err.message || 'Failed'))
       .finally(() => setLoading(false));
   };
-
-  const rangeLength = Math.max(0, (Number(chunkRangeEnd) || totalRows) - (Number(chunkRangeStart) || 1) + 1);
-  const customSizesSum = (() => {
-    if (sizeMode !== 'custom' || !chunkSizesText.trim()) return 0;
-    const sizes = chunkSizesText
-      .split(/[\s,]+/)
-      .map((s) => parseInt(s.trim(), 10))
-      .filter((n) => !Number.isNaN(n) && n > 0);
-    return sizes.reduce((a, b) => a + b, 0);
-  })();
-  const customSumExceedsRange = rangeLength > 0 && customSizesSum > rangeLength;
-  const lastChunkRemainder = (() => {
-    if (rangeLength <= 0) return 0;
-    if (sizeMode === 'equal') {
-      const size = Math.min(Math.max(1, parseInt(equalSize, 10)), 10000);
-      if (size > rangeLength) return rangeLength;
-      const remainder = rangeLength % size;
-      return remainder === 0 ? size : remainder;
-    }
-    const sizes = chunkSizesText
-      .split(/[\s,]+/)
-      .map((s) => parseInt(s.trim(), 10))
-      .filter((n) => !Number.isNaN(n) && n > 0);
-    if (sizes.length === 0) return rangeLength;
-    let cursor = 0;
-    let idx = 0;
-    while (cursor < rangeLength && cursor + sizes[idx % sizes.length] <= rangeLength) {
-      cursor += sizes[idx % sizes.length];
-      idx += 1;
-    }
-    return rangeLength - cursor;
-  })();
 
   // Step 4: Choose columns
   const handleSaveColumns = (e) => {
@@ -586,7 +521,7 @@ export default function SessionCreate() {
       )}
 
       {step === 3 && (
-        <form onSubmit={handleChunking} className="form-fields">
+        <div className="form-fields">
           <p className="form-info">
             Sheet has <strong>{totalRows}</strong> records.
             <span className="form-field-help" style={{ marginLeft: '0.35rem' }}>
@@ -624,82 +559,18 @@ export default function SessionCreate() {
             <p className="form-info"><strong>{rangeLength}</strong> records chosen.</p>
           )}
 
-          <div className="form-section">
-            <p className="form-section-title">
-              Size:
-              <span className="form-field-help">
-                <span className="form-field-help-icon" tabIndex={0} aria-label="Help">ⓘ</span>
-                <span className="form-field-help-text" role="tooltip">Records are split into chunks of this size. Each chunk is shown as one review unit.</span>
-              </span>
-            </p>
-            <div className="form-field form-field-radio">
-              <label className="form-radio-label">
-                <input type="radio" checked={sizeMode === 'equal'} onChange={() => setSizeMode('equal')} />
-                Equal: chunk size
-                <span className="form-field-help">
-                  <span className="form-field-help-icon" tabIndex={0} aria-label="Help">ⓘ</span>
-                  <span className="form-field-help-text" role="tooltip">Every chunk has the same number of records.</span>
-                </span>
-              </label>
-              <div className="form-input">
-                <input
-                  type="number"
-                  min={1}
-                  max={totalRows}
-                  value={equalSize}
-                  onChange={(e) => setEqualSize(e.target.value)}
-                  className="form-input-narrow"
-                  aria-invalid={!!fieldErrors.chunkSize}
-                  aria-describedby={fieldErrors.chunkSize ? 'chunk-size-error' : undefined}
-                />
-              </div>
-            </div>
-            <div className="form-field form-field-radio">
-              <label className="form-radio-label">
-                <input type="radio" checked={sizeMode === 'custom'} onChange={() => setSizeMode('custom')} />
-                Custom (comma-separated):
-                <span className="form-field-help">
-                  <span className="form-field-help-icon" tabIndex={0} aria-label="Help">ⓘ</span>
-                  <span className="form-field-help-text" role="tooltip">Specify each chunk size in order, e.g. 10, 20, 15.</span>
-                </span>
-              </label>
-              <div className="form-input">
-                <input
-                  type="text"
-                  value={chunkSizesText}
-                  onChange={(e) => setChunkSizesText(e.target.value)}
-                  placeholder="e.g. 10, 20, 15, 25"
-                  aria-invalid={!!fieldErrors.chunkSize}
-                  aria-describedby={fieldErrors.chunkSize ? 'chunk-size-error' : undefined}
-                />
-              </div>
-            </div>
-            {fieldErrors.chunkSize && <p id="chunk-size-error" className="form-field-error" style={{ marginTop: '0.25rem' }}>{fieldErrors.chunkSize}</p>}
-          </div>
-
-          {customSumExceedsRange && (
-            <div className="form-field">
-              <span className="form-field-spacer" />
-              <p className="form-info form-info-inline" style={{ color: '#dc2626' }}>Sum of chunk sizes ({customSizesSum}) exceeds chosen records ({rangeLength}).</p>
-            </div>
-          )}
-          {rangeLength > 0 && !customSumExceedsRange && (
-            <div className="form-field">
-              <span className="form-field-spacer" />
-              <p className="form-info form-info-inline">Last chunk will have remaining <strong>{lastChunkRemainder}</strong> records.</p>
-            </div>
-          )}
-
-          <div className="form-field form-actions">
-            <span className="form-field-spacer" />
-            <div className="form-actions-buttons">
-              <button type="submit" className="primary" disabled={loading || customSumExceedsRange}>
-                {loading && <span className="form-spinner" aria-hidden="true" />}
-                {loading ? 'Saving…' : 'Continue'}
-              </button>
-            </div>
-          </div>
-        </form>
+          {fieldErrors.chunkSize && <p id="chunk-size-error" className="form-field-error" style={{ marginBottom: '0.5rem' }}>{fieldErrors.chunkSize}</p>}
+          <ChunkingWidget
+            totalRecords={rangeLength}
+            title="Chunking"
+            description="Split the chosen range into chunks. Each chunk is one review unit."
+            confirmStep={false}
+            submitLabel="Continue"
+            onSubmit={handleChunkingFromWidget}
+            collapsible={false}
+            submitting={loading}
+          />
+        </div>
       )}
 
       {step === 4 && (

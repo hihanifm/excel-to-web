@@ -28,12 +28,12 @@ test.describe.serial('Session and chunk e2e', () => {
     await page.getByRole('combobox').selectOption({ label: 'Sample' });
     await page.getByRole('button', { name: /continue/i }).click();
     await expect(page.getByText(/sheet has.*records/i)).toBeVisible();
-    // Chunking: range 1–50, equal size 25 → 2 chunks (1–25, 26–50)
-    const chunkingForm = page.locator('form');
-    await chunkingForm.locator('input[type="number"]').nth(0).fill('1');
-    await chunkingForm.locator('input[type="number"]').nth(1).fill('50');
-    await chunkingForm.locator('input[type="number"]').nth(2).fill('25');
-    await page.getByRole('button', { name: /continue/i }).click();
+    // Chunking: range 1–50, Equal with 2 sub-chunks → 2 chunks (1–25, 26–50)
+    await page.locator('input[id="from-row"]').fill('1');
+    await page.locator('input[id="to-row"]').fill('50');
+    await page.getByRole('radio', { name: 'Equal' }).check();
+    await page.locator('.rechunk-widget-input').first().fill('2');
+    await page.getByRole('button', { name: /^continue$/i }).click();
     await expect(page.getByText(/left panel columns/i)).toBeVisible();
 
     await page.getByLabel('Conversation', { exact: true }).check();
@@ -75,7 +75,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible();
     const chunksTable = page.getByRole('table');
     const firstRow = chunksTable.locator('tbody tr').first();
-    await firstRow.getByRole('button', { name: 'Edit' }).first().click();
+    await firstRow.getByRole('button', { name: 'Edit assignee' }).click();
     await firstRow.locator('input[placeholder="Name"]').fill('E2E Tester');
     await firstRow.locator('input[placeholder="Name"]').press('Enter');
     await expect(firstRow.getByText('E2E Tester')).toBeVisible({ timeout: 5000 });

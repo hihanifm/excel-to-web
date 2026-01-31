@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import ChunkingWidget from '../components/ChunkingWidget';
 
 const CLAIMANT_STORAGE_KEY = (sessionId) => `excel-app_claimant_${sessionId}`;
 const LAST_VIEWED_OFFSET_KEY = (sessionId, chunkId) => `excel-app_lastOffset_${sessionId}_chunk_${chunkId}`;
@@ -84,16 +85,8 @@ export default function ChunkEditor() {
   const [successMessage, setSuccessMessage] = useState('');
   const [showCompleteCelebration, setShowCompleteCelebration] = useState(false);
   const [completeCelebrationVariant, setCompleteCelebrationVariant] = useState('just_completed'); // 'just_completed' | 'already_completed'
-  const [rechunkOpen, setRechunkOpen] = useState(false);
-  const [rechunkMode, setRechunkMode] = useState('equal'); // 'equal' | 'count' | 'percentage'
-  const [rechunkNumChunks, setRechunkNumChunks] = useState('2');
-  const [rechunkCountsStr, setRechunkCountsStr] = useState('');
-  const [rechunkPercentagesStr, setRechunkPercentagesStr] = useState('');
   const [rechunkSubmitting, setRechunkSubmitting] = useState(false);
   const [rechunkError, setRechunkError] = useState('');
-  const [rechunkPendingConfirm, setRechunkPendingConfirm] = useState(false);
-  const [rechunkConfirmMessage, setRechunkConfirmMessage] = useState('');
-  const [rechunkConfirmBody, setRechunkConfirmBody] = useState(null);
   const persistedAssigneeRef = useRef(''); // Last known assignee in DB (for name-edit API)
 
   // Reset chunk-specific state when switching to a different chunk so we always re-fetch and re-evaluate.
@@ -423,90 +416,21 @@ export default function ChunkEditor() {
     if (typeof window !== 'undefined') window.scrollTo(0, 0);
   };
 
-  const handleRechunk = () => {
+  const handleRechunkSubmit = (body) => {
     setRechunkError('');
-    let body = {};
-    let numChunks = 0;
-    let confirmMsg = '';
-    const totalInChunk = data.totalInChunk ?? 0;
-
-    if (rechunkMode === 'equal') {
-      const num = parseInt(rechunkNumChunks, 10);
-      if (Number.isNaN(num) || num < 2) {
-        setRechunkError('Enter at least 2 sub-chunks');
-        return;
-      }
-      body = { numChunks: num };
-      numChunks = num;
-      confirmMsg = `${numChunks} chunks will be created.`;
-    } else if (rechunkMode === 'count') {
-      const parts = rechunkCountsStr.split(',').map((s) => parseInt(s.trim(), 10));
-      if (parts.length < 2 || parts.some((n) => Number.isNaN(n) || n < 1)) {
-        setRechunkError('Enter at least 2 positive numbers (e.g. 5, 10, 15)');
-        return;
-      }
-      const sum = parts.reduce((a, b) => a + b, 0);
-      if (sum > totalInChunk) {
-        setRechunkError(`Sum of counts (${sum}) exceeds chunk size (${totalInChunk} records).`);
-        return;
-      }
-      body = { counts: parts };
-      numChunks = sum < totalInChunk ? parts.length + 1 : parts.length;
-      confirmMsg = `${numChunks} chunks will be created.`;
-      if (sum < totalInChunk) {
-        confirmMsg += ` The last chunk will have the remaining ${totalInChunk - sum} records.`;
-      }
-    } else {
-      const parts = rechunkPercentagesStr.split(',').map((s) => parseFloat(s.trim(), 10));
-      if (parts.length < 2 || parts.some((n) => Number.isNaN(n) || n < 0)) {
-        setRechunkError('Enter at least 2 numbers (e.g. 25, 50, 25)');
-        return;
-      }
-      const sum = parts.reduce((a, b) => a + b, 0);
-      if (Math.abs(sum - 100) > 0.01) {
-        setRechunkError('Percentages must sum to 100');
-        return;
-      }
-      body = { percentages: parts };
-      numChunks = parts.length;
-      confirmMsg = `${numChunks} chunks will be created.`;
-    }
-
-    setRechunkConfirmMessage(confirmMsg);
-    setRechunkConfirmBody(body);
-    setRechunkPendingConfirm(true);
-  };
-
-  const handleRechunkConfirm = () => {
-    if (!rechunkConfirmBody) return;
     setRechunkSubmitting(true);
     fetch(`/api/sessions/${id}/chunks/${chunkId}/rechunk`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(rechunkConfirmBody),
+      body: JSON.stringify(body),
     })
       .then((r) => {
         if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Re-chunk failed'); });
         return r.json();
       })
-      .then(() => {
-        setRechunkPendingConfirm(false);
-        setRechunkConfirmBody(null);
-        setRechunkConfirmMessage('');
-        setRechunkOpen(false);
-        setRechunkNumChunks('2');
-        setRechunkCountsStr('');
-        setRechunkPercentagesStr('');
-        navigate(`/sessions/${id}/chunks/${chunkId}`, { replace: true });
-      })
+      .then(() => navigate(`/sessions/${id}/chunks/${chunkId}`, { replace: true }))
       .catch((err) => setRechunkError(err.message))
       .finally(() => setRechunkSubmitting(false));
-  };
-
-  const handleRechunkConfirmCancel = () => {
-    setRechunkPendingConfirm(false);
-    setRechunkConfirmBody(null);
-    setRechunkConfirmMessage('');
   };
 
   if (!claimed) {
@@ -624,7 +548,9 @@ export default function ChunkEditor() {
                 aria-label="Assignee name"
                 className="name-input-editable"
                 style={{
-                  width: '6rem', minWidth: '4rem', maxWidth: '12rem',
+                  width: `${Math.max(6, Math.min((name?.length ?? 0) + 2, 42))}ch`,
+                  minWidth: '4rem',
+                  maxWidth: '24rem',
                   padding: '0.2rem 0.4rem', fontSize: '0.9rem', fontWeight: 600,
                   border: '1px solid transparent', borderRadius: 4, background: 'transparent', color: 'inherit',
                 }}
@@ -815,119 +741,19 @@ export default function ChunkEditor() {
         </>
       )}
       </div>
-      <div className="card rechunk-widget-card">
-        <header className="rechunk-widget-header">
-          <h2 className="rechunk-widget-title">Re-chunk</h2>
-        </header>
-        <p className="rechunk-widget-desc">Split this chunk into smaller sub-chunks. You will be taken to the new sub-chunks after splitting.</p>
-        {data.totalInChunk != null && data.totalInChunk > 0 && (
-          <p className="rechunk-widget-stats" aria-label="Chunk stats">
-            <strong>{data.totalInChunk}</strong> record{data.totalInChunk !== 1 ? 's' : ''}
-            {rangeStr ? (
-              <span className="rechunk-widget-stats-range"> (records {rangeStr})</span>
-            ) : null}
-          </p>
-        )}
-        {rechunkOpen ? (
-          <div className="rechunk-widget-form">
-            <fieldset className="rechunk-widget-modes">
-              <legend className="rechunk-widget-legend">Split by</legend>
-              <label className="rechunk-widget-radio">
-                <input
-                  type="radio"
-                  name="rechunkMode"
-                  value="equal"
-                  checked={rechunkMode === 'equal'}
-                  onChange={() => { setRechunkMode('equal'); setRechunkError(''); }}
-                />
-                <span>Equal</span>
-              </label>
-              <label className="rechunk-widget-radio">
-                <input
-                  type="radio"
-                  name="rechunkMode"
-                  value="count"
-                  checked={rechunkMode === 'count'}
-                  onChange={() => { setRechunkMode('count'); setRechunkError(''); }}
-                />
-                <span>Count (comma-separated)</span>
-              </label>
-              <label className="rechunk-widget-radio">
-                <input
-                  type="radio"
-                  name="rechunkMode"
-                  value="percentage"
-                  checked={rechunkMode === 'percentage'}
-                  onChange={() => { setRechunkMode('percentage'); setRechunkError(''); }}
-                />
-                <span>Percentage (comma-separated)</span>
-              </label>
-            </fieldset>
-            {rechunkMode === 'equal' && (
-              <label className="rechunk-widget-label">
-                Number of sub-chunks
-                <input
-                  type="number"
-                  min={2}
-                  value={rechunkNumChunks}
-                  onChange={(e) => { setRechunkNumChunks(e.target.value); setRechunkError(''); }}
-                  className="rechunk-widget-input"
-                  aria-label="Number of sub-chunks"
-                />
-              </label>
-            )}
-            {rechunkMode === 'count' && (
-              <label className="rechunk-widget-label">
-                Row counts (e.g. 5, 10, 15)
-                <input
-                  type="text"
-                  value={rechunkCountsStr}
-                  onChange={(e) => { setRechunkCountsStr(e.target.value); setRechunkError(''); }}
-                  className="rechunk-widget-input rechunk-widget-input-wide"
-                  placeholder="5, 10, 15"
-                  aria-label="Row counts comma-separated"
-                />
-              </label>
-            )}
-            {rechunkMode === 'percentage' && (
-              <label className="rechunk-widget-label">
-                Percentages, sum to 100 (e.g. 25, 50, 25)
-                <input
-                  type="text"
-                  value={rechunkPercentagesStr}
-                  onChange={(e) => { setRechunkPercentagesStr(e.target.value); setRechunkError(''); }}
-                  className="rechunk-widget-input rechunk-widget-input-wide"
-                  placeholder="25, 50, 25"
-                  aria-label="Percentages comma-separated"
-                />
-              </label>
-            )}
-            {rechunkError && <p className="chunk-editor-error" role="alert">{rechunkError}</p>}
-            {rechunkPendingConfirm ? (
-              <div className="rechunk-widget-confirm">
-                <p className="rechunk-widget-confirm-msg">{rechunkConfirmMessage}</p>
-                <div className="rechunk-widget-actions">
-                  <button type="button" className="btn-nav" onClick={handleRechunkConfirm} disabled={rechunkSubmitting}>
-                    {rechunkSubmitting ? 'Splitting…' : 'Confirm'}
-                  </button>
-                  <button type="button" onClick={handleRechunkConfirmCancel} disabled={rechunkSubmitting}>Back</button>
-                </div>
-              </div>
-            ) : (
-              <div className="rechunk-widget-actions">
-                <button type="button" className="btn-nav" onClick={handleRechunk} disabled={rechunkSubmitting}>
-                  {rechunkSubmitting ? 'Splitting…' : 'Split'}
-                </button>
-                <button type="button" onClick={() => { setRechunkOpen(false); setRechunkError(''); setRechunkPendingConfirm(false); setRechunkConfirmBody(null); setRechunkConfirmMessage(''); }}>Cancel</button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <button type="button" className="btn-link rechunk-widget-trigger" onClick={() => setRechunkOpen(true)}>
-            Split this chunk
-          </button>
-        )}
-      </div>
+      {rechunkError && <p className="chunk-editor-error" role="alert">{rechunkError}</p>}
+      <ChunkingWidget
+        totalRecords={data.totalInChunk}
+        recordRangeLabel={rangeStr ? `records ${rangeStr}` : undefined}
+        title="Re-chunk"
+        description="Split this chunk into smaller sub-chunks. You will be taken to the new sub-chunks after splitting."
+        confirmStep
+        submitLabel="Split"
+        onSubmit={handleRechunkSubmit}
+        collapsible
+        triggerLabel="Split this chunk"
+        submitting={rechunkSubmitting}
+      />
     </>
   );
 }

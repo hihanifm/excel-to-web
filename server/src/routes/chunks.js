@@ -36,25 +36,15 @@ router.put('/:chunkId/complete', (req, res) => {
   res.json({ ok: true });
 });
 
-// PUT /api/sessions/:id/chunks/:chunkId/rechunk — body: { numChunks? } (equal) | { counts? } | { percentages? } (sum 100) | { chunkSize? } (legacy: rows per chunk)
+// PUT /api/sessions/:id/chunks/:chunkId/rechunk — body: { chunkSizes: number[] } (processed by frontend)
 router.put('/:chunkId/rechunk', (req, res) => {
   const sessionId = Number(req.params.id);
   const chunkId = Number(req.params.chunkId);
-  let { numChunks, counts, percentages, chunkSize } = req.body || {};
-  // Legacy: chunkSize (rows per chunk) → derive numChunks
-  if (numChunks == null && counts == null && percentages == null && chunkSize != null) {
-    const chunk = sessionService.getChunk(sessionId, chunkId);
-    if (!chunk) return res.status(404).json({ error: 'Chunk not found' });
-    const rangeLength = (chunk.end_row ?? 0) - (chunk.start_row ?? 0);
-    const size = Math.max(1, parseInt(chunkSize, 10));
-    if (Number.isNaN(size)) return res.status(400).json({ error: 'numChunks, counts, or percentages required' });
-    numChunks = Math.ceil(rangeLength / size);
-    if (numChunks < 2) numChunks = 2;
+  const { chunkSizes } = req.body || {};
+  if (!Array.isArray(chunkSizes) || chunkSizes.length === 0) {
+    return res.status(400).json({ error: 'chunkSizes (array of sizes) required' });
   }
-  if (numChunks == null && counts == null && percentages == null) {
-    return res.status(400).json({ error: 'numChunks, counts, or percentages required' });
-  }
-  const result = sessionService.rechunkChunk(sessionId, chunkId, { numChunks, counts, percentages });
+  const result = sessionService.rechunkChunk(sessionId, chunkId, { chunkSizes });
   if (!result.ok) return res.status(400).json({ error: result.error });
   res.json({ ok: true });
 });

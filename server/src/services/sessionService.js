@@ -377,17 +377,8 @@ export function updateChunkAssignee(sessionId, chunkId, currentName, newName) {
   return { ok: true };
 }
 
-/** Parse comma-separated numbers string into array of numbers. */
-function parseCommaNumbers(str) {
-  if (str == null) return null;
-  const s = typeof str === 'string' ? str : String(str);
-  const parts = s.split(',').map((p) => Number(p.trim()));
-  if (parts.some((n) => Number.isNaN(n) || n < 0)) return null;
-  return parts;
-}
-
 /** Re-chunk a leaf into N children. Chunk must be leaf (no children). Parent retains assignee.
- * Options: numChunks (equal), counts (number[]), or percentages (number[] summing to 100). */
+ * Options: chunkSizes (number[]) — processed sizes from frontend; sum must equal range length. */
 export function rechunkChunk(sessionId, chunkId, options = {}) {
   const db = getDb(process.env.DB_PATH);
   const chunk = db.prepare(
@@ -400,35 +391,14 @@ export function rechunkChunk(sessionId, chunkId, options = {}) {
   const end = chunk.end_row;
   const rangeLength = end - start;
 
-  let sizes = null;
-  const numChunksOpt = options.numChunks != null ? Number(options.numChunks) : null;
-  const countsOpt = options.counts != null
-    ? (Array.isArray(options.counts) ? options.counts : parseCommaNumbers(options.counts))
-    : null;
-  const percentagesOpt = options.percentages != null
-    ? (Array.isArray(options.percentages) ? options.percentages : parseCommaNumbers(options.percentages))
-    : null;
-
-  if (countsOpt != null && countsOpt.length >= 2) {
-    const sum = countsOpt.reduce((a, b) => a + b, 0);
-    if (sum > rangeLength) return { ok: false, error: 'Counts sum exceeds chunk size' };
-    sizes = [...countsOpt];
-    const remainder = rangeLength - sum;
-    if (remainder > 0) sizes.push(remainder);
-  } else if (percentagesOpt != null && percentagesOpt.length >= 2) {
-    const sum = percentagesOpt.reduce((a, b) => a + b, 0);
-    if (Math.abs(sum - 100) > 0.01) return { ok: false, error: 'Percentages must sum to 100' };
-    sizes = percentagesOpt.map((p) => Math.floor((rangeLength * p) / 100));
-    const remainder = rangeLength - sizes.reduce((a, b) => a + b, 0);
-    if (remainder > 0) sizes[sizes.length - 1] = (sizes[sizes.length - 1] ?? 0) + remainder;
-  } else if (numChunksOpt != null && numChunksOpt >= 2) {
-    const n = Math.floor(numChunksOpt);
-    const chunkSize = Math.floor(rangeLength / n);
-    const remainder = rangeLength - chunkSize * n;
-    sizes = Array(n).fill(chunkSize);
-    if (remainder > 0) sizes[n - 1] = chunkSize + remainder;
-  } else {
-    return { ok: false, error: 'Provide numChunks (≥2), counts (comma-separated), or percentages (comma-separated, sum 100)' };
+  const chunkSizes = options.chunkSizes;
+  if (!Array.isArray(chunkSizes) || chunkSizes.length === 0) {
+    return { ok: false, error: 'chunkSizes (array of sizes) required' };
+  }
+  const sizes = chunkSizes.filter((s) => Number(s) > 0).map(Number);
+  const sum = sizes.reduce((a, b) => a + b, 0);
+  if (sum !== rangeLength) {
+    return { ok: false, error: `chunkSizes sum (${sum}) must equal chunk range length (${rangeLength})` };
   }
 
   const stmt = db.prepare(
