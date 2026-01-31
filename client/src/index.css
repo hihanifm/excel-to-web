@@ -664,6 +664,29 @@ table.data-table tbody tr:hover {
 table.data-table tbody tr.chunk-row-clickable {
   cursor: pointer;
 }
+table.data-table tbody tr.chunk-row-container {
+  background: #f0f9ff;
+  border-left: 3px solid #0ea5e9;
+}
+table.data-table tbody tr.chunk-row-container:hover {
+  background: #e0f2fe;
+}
+table.data-table tbody tr.chunk-row-leaf {
+  border-left: 3px solid transparent;
+}
+table.data-table .chunk-type-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+  color: #64748b;
+}
+table.data-table tr.chunk-row-container .chunk-type-icon {
+  color: #0ea5e9;
+}
+table.data-table tr.chunk-row-leaf .chunk-type-icon {
+  color: #0d9488;
+}
 table.data-table .link-action {
   color: #0d9488;
   font-weight: 500;

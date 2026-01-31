@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 
 function formatDate(isoStr) {
   if (!isoStr) return '–';
@@ -34,9 +34,6 @@ export default function SessionDetail() {
   const [tagSavingChunkId, setTagSavingChunkId] = useState(null);
   const [editingAssigneeChunkId, setEditingAssigneeChunkId] = useState(null);
   const [assigneeSavingChunkId, setAssigneeSavingChunkId] = useState(null);
-  const [rechunkChunkId, setRechunkChunkId] = useState(null);
-  const [rechunkNumChunks, setRechunkNumChunks] = useState('2');
-  const [rechunkSubmitting, setRechunkSubmitting] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const tagInputRef = useRef(null);
   const assigneeInputRef = useRef(null);
@@ -203,28 +200,6 @@ export default function SessionDetail() {
     }
   };
 
-  const handleRechunk = (chunkId) => {
-    const num = parseInt(rechunkNumChunks, 10);
-    if (Number.isNaN(num) || num < 2) return;
-    setRechunkSubmitting(true);
-    fetch(`/api/sessions/${id}/chunks/${chunkId}/rechunk`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numChunks: num }),
-    })
-      .then((r) => {
-        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Re-chunk failed'); });
-        return r.json();
-      })
-      .then(() => {
-        setRechunkChunkId(null);
-        setRechunkNumChunks('2');
-        load();
-      })
-      .catch(console.error)
-      .finally(() => setRechunkSubmitting(false));
-  };
-
   if (loading && !session) return <div className="card">Loading...</div>;
   if (!session) return <div className="card">Project not found.</div>;
 
@@ -383,18 +358,15 @@ export default function SessionDetail() {
               <th>Assignee</th>
               <th>Tag</th>
               <th>Progress</th>
-              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {chunks.map((ch) => {
               const isContainer = (ch.childCount ?? 0) > 0;
-              const isLeaf = !isContainer;
-              const canRechunk = isLeaf;
               return (
                 <tr
                   key={ch.id}
-                  className="chunk-row-clickable"
+                  className={`chunk-row-clickable ${isContainer ? 'chunk-row-container' : 'chunk-row-leaf'}`}
                   onClick={() => {
                     if (isContainer) navigate(`/sessions/${id}/chunks/${ch.id}`);
                     else navigate(`/sessions/${id}/chunks/${ch.id}/edit`, {
@@ -402,7 +374,16 @@ export default function SessionDetail() {
                     });
                   }}
                 >
-                  <td>{ch.chunk_index + 1}</td>
+                  <td>
+                    <span className="chunk-type-icon" aria-hidden="true" title={isContainer ? 'Container (has sub-chunks)' : 'Leaf chunk'}>
+                      {isContainer ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                      )}
+                    </span>
+                    {ch.chunk_index + 1}
+                  </td>
                   <td>{ch.start_row + 1}–{ch.end_row}</td>
                   <td>{ch.status}</td>
                   <td>
@@ -459,42 +440,6 @@ export default function SessionDetail() {
                     )}
                   </td>
                   <td>{ch.rowsEditedInChunk ?? 0} / {ch.rowsInChunk ?? (ch.end_row - ch.start_row)}</td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    {isContainer ? (
-                      <Link className="link-action" to={`/sessions/${id}/chunks/${ch.id}`} onClick={(e) => e.stopPropagation()}>
-                        View
-                      </Link>
-                    ) : canRechunk ? (
-                      rechunkChunkId === ch.id ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <input
-                            type="number"
-                            min={2}
-                            value={rechunkNumChunks}
-                            onChange={(e) => setRechunkNumChunks(e.target.value)}
-                            style={{ width: '4rem' }}
-                          />
-                          <button
-                            type="button"
-                            className="btn-nav"
-                            onClick={() => handleRechunk(ch.id)}
-                            disabled={rechunkSubmitting}
-                          >
-                            Split
-                          </button>
-                          <button type="button" onClick={() => setRechunkChunkId(null)}>Cancel</button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn-link"
-                          onClick={() => setRechunkChunkId(ch.id)}
-                        >
-                          Re-chunk
-                        </button>
-                      )
-                    ) : null}
-                  </td>
                 </tr>
               );
             })}

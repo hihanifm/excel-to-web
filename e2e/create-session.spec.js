@@ -75,7 +75,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible();
     const chunksTable = page.getByRole('table');
     const firstRow = chunksTable.locator('tbody tr').first();
-    await firstRow.getByRole('button', { name: 'Add assignee' }).click();
+    await firstRow.getByRole('button', { name: 'Edit' }).first().click();
     await firstRow.locator('input[placeholder="Name"]').fill('E2E Tester');
     await firstRow.locator('input[placeholder="Name"]').press('Enter');
     await expect(firstRow.getByText('E2E Tester')).toBeVisible({ timeout: 5000 });
@@ -122,18 +122,24 @@ test.describe.serial('Session and chunk e2e', () => {
 
     await page.goto(`/sessions/${sessionId}`);
     await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible({ timeout: 10000 });
-    // Second chunk (26–50) is unclaimed; first (1–25) is in progress from previous test
+    // Second chunk (26–50) is unclaimed; click row to open Chunk Editor
     const chunksTable = page.getByRole('table');
     const secondRow = chunksTable.locator('tbody tr').nth(1);
     await expect(secondRow).toContainText('26–50');
-    await expect(secondRow.getByRole('button', { name: 'Re-chunk' })).toBeVisible();
-    await secondRow.getByRole('button', { name: 'Re-chunk' }).click();
-    await secondRow.locator('input[type="number"]').fill('2');
-    await secondRow.getByRole('button', { name: 'Split' }).click();
-    await expect(secondRow.getByRole('link', { name: 'View' }).first()).toBeVisible({ timeout: 5000 });
-    await secondRow.getByRole('link', { name: 'View' }).first().click();
+    await secondRow.locator('td').first().click();
+    await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/chunks/\\d+/edit`));
+    // Unclaimed chunk: claim first
+    await page.getByLabel('Your name').fill('E2E Tester');
+    await page.getByRole('button', { name: 'Claim chunk' }).click();
+    await expect(page.getByRole('heading', { name: /Chunk \(records/ })).toBeVisible({ timeout: 5000 });
+    // Re-chunk widget: open form, use Equal with 2 sub-chunks, Split then Confirm
+    await page.getByRole('button', { name: 'Split this chunk' }).click();
+    await page.getByRole('radio', { name: 'Equal' }).check();
+    await page.locator('.rechunk-widget-input').first().fill('2');
+    await page.getByRole('button', { name: 'Split' }).click();
+    await page.getByRole('button', { name: 'Confirm' }).click();
     await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/chunks/\\d+$`));
-    await expect(page.getByRole('heading', { name: 'Sub-chunks' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sub-chunks' })).toBeVisible({ timeout: 5000 });
     const subChunkRows = page.getByRole('table').locator('tbody tr');
     await expect(subChunkRows).toHaveCount(2);
     await expect(page.getByRole('link', { name: 'Back to project' })).toBeVisible();
