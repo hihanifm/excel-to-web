@@ -343,13 +343,21 @@ export default function ChunkEditor() {
       <p style={{ margin: '0 0 0.5rem 0' }}>
         <button type="button" className="btn-nav" onClick={() => navigate(`/sessions/${id}`, { replace: true })}>← Back to session</button>
       </p>
-      <p style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap', margin: 0 }}>
-        <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
-        {chunkTag?.trim() && (
-          <span style={{ color: '#555', fontSize: '0.95rem' }}>Tag: <strong>{chunkTag.trim()}</strong></span>
-        )}
+      <p style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', margin: 0, justifyContent: 'space-between' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <h1 style={{ margin: 0 }}>Chunk {Number(chunkIndex) + 1}</h1>
+          {chunkTag?.trim() && (
+            <span style={{ color: '#555', fontSize: '0.95rem' }}>Tag: <strong>{chunkTag.trim()}</strong></span>
+          )}
+        </span>
         {name?.trim() && (
-          <span style={{ color: '#666' }}>Editing as: <strong>{name.trim()}</strong></span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#555', fontSize: '0.9rem' }} title={`Editing as ${name.trim()}`}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            <strong>{name.trim()}</strong>
+          </span>
         )}
       </p>
       <p>
@@ -416,7 +424,7 @@ export default function ChunkEditor() {
               <div key={row.rowIndex} className="card card-row" style={{ width: '100%' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <strong>[Row {row.rowIndex + 1}] Left (read-only)</strong>
+                    <strong style={{ fontSize: '0.9rem', color: '#555' }}>Row {row.rowIndex + 1}</strong>
                     <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
                       {Object.entries(row.leftValues || {}).map(([k, v], idx, arr) => (
                         <li
@@ -434,7 +442,7 @@ export default function ChunkEditor() {
                     </ul>
                   </div>
                   <div>
-                    <strong>Target</strong>
+                    <strong>Labels</strong>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
                       {(data.targetOptions || []).map((opt) => {
                           const isSelected = row.targetCurrentValue === opt;
