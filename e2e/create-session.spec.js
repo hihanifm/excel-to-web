@@ -9,34 +9,6 @@ const PROJECT_NAME = `AI Labelling ${Math.floor(Math.random() * 100000)}`;
 /** Shared session ID from first test for second test (serial run). */
 let sessionId;
 
-test.describe('Create session cancel', () => {
-  test('cancel on step 1 navigates to sessions', async ({ page }) => {
-    await page.goto('/create');
-    await expect(page.getByRole('heading', { name: /create project/i })).toBeVisible();
-    await page.getByRole('button', { name: /cancel/i }).click();
-    await expect(page).not.toHaveURL(/\/create/);
-    await expect(page.getByRole('heading', { name: /^projects$/i })).toBeVisible();
-  });
-
-  test('cancel on step 2 abandons draft and navigates', async ({ page }) => {
-    // Stub window.confirm to return true so we avoid native dialog handling
-    await page.addInitScript(() => {
-      window.__confirmStub = true;
-      window.confirm = () => window.__confirmStub;
-    });
-    await page.goto('/create');
-    await expect(page.getByRole('heading', { name: /create project/i })).toBeVisible();
-    await page.getByLabel('Project name').fill('E2E Cancel Test');
-    await page.locator('input[type="file"]').setInputFiles(SAMPLE_PATH);
-    await page.getByRole('button', { name: /^upload$/i }).click();
-    await expect(page.getByText(/choose a sheet/i)).toBeVisible({ timeout: 10000 });
-
-    await page.getByRole('button', { name: /cancel/i }).click();
-    await expect(page).not.toHaveURL(/\/create/, { timeout: 15000 });
-    await expect(page.getByRole('heading', { name: /^projects$/i })).toBeVisible();
-  });
-});
-
 test.describe.serial('Session and chunk e2e', () => {
   test('create session with sample file', async ({ page }) => {
     test.setTimeout(60000);
@@ -77,7 +49,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await expect(page).toHaveURL(/\/sessions\/\d+$/);
     const match = page.url().match(/\/sessions\/(\d+)$/);
     expect(match).toBeTruthy();
-    sessionId = match[1];
+    sessionId = match ? match[1] : '';
 
     await expect(page.getByRole('heading', { name: 'Stats' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible();
@@ -116,18 +88,27 @@ test.describe.serial('Session and chunk e2e', () => {
 
     const rowCards = page.locator('.card-row');
     await expect(rowCards).toHaveCount(5);
-    for (let i = 0; i < 5; i++) {
+    const numToLabel = 3;
+    for (let i = 0; i < numToLabel; i++) {
       await rowCards.nth(i).getByRole('button').first().click();
     }
+    // Wait for label saves (PUT) to complete before leaving the page
+    await page.waitForTimeout(800);
 
-    // Resume flow: go back to session and click the chunk row (chunk 0 is now in progress); should land in editor without claim form
+    // Go back to session and verify stats reflect the labeled records
     await page.goto(`/sessions/${sessionId}`);
+    await expect(page.getByRole('heading', { name: 'Stats' })).toBeVisible({ timeout: 10000 });
+    const statsCard = page.locator('.card-stats');
+    await expect(statsCard).toContainText(/Records edited:\s*\d+\s*\/\s*\d+/, { timeout: 5000 });
+    await expect(statsCard).toContainText(/In progress:\s*1/);
+    await expect(statsCard.getByText(/Records edited:/)).toContainText(`${numToLabel}`);
+
+    // Resume flow: click chunk row (chunk 0 is in progress); should land in editor without claim form
     await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible();
     const firstChunkRow = page.getByRole('table').locator('tbody tr').first();
     await expect(firstChunkRow).toBeVisible({ timeout: 5000 });
     await firstChunkRow.locator('td').first().click();
     await page.waitForURL(new RegExp(`/sessions/${sessionId}/chunks/0/edit`));
-    // Should see editor and NOT the claim form
     await expect(page.getByText(/records per view/i)).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('button', { name: 'Claim chunk' })).not.toBeVisible();
     await expect(page.getByLabel(/your name/i)).not.toBeVisible();

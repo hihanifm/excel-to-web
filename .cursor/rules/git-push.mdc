@@ -1,0 +1,14 @@
+---
+description: When user says "push", always commit all changes then push
+alwaysApply: true
+---
+
+# Git push
+
+When the user says **"push"**, always:
+
+1. Stage all changes: `git add -A`
+2. Commit with a short message (summarize changes or use "Update" if generic)
+3. Push to remote: `git push`
+
+Do not only run `git push` and then report uncommitted changes. Commit first, then push. Request `git_write` and `network` permissions when running these commands.
