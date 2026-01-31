@@ -497,7 +497,7 @@ export default function ChunkEditor() {
           ← BACK
         </button>
       </div>
-      <div className="card">
+      <div className="card chunk-editor-card">
       <header className="chunk-editor-header">
         <h1>Chunk {Number(chunkIndex) + 1}{rangeStr ? ` (records ${rangeStr})` : ''}</h1>
         <div className="chunk-editor-meta">
@@ -532,7 +532,9 @@ export default function ChunkEditor() {
         </div>
         {data.totalInChunk > 0 && (
           <div className="chunk-editor-progress" aria-label={`${data.labeledInChunk ?? 0} of ${data.totalInChunk} labeled`}>
-            <span className="chunk-editor-progress-text">{data.labeledInChunk ?? 0} of {data.totalInChunk} labeled</span>
+            <div className="chunk-editor-progress-label-wrap" style={{ textAlign: 'right' }}>
+              <span className="chunk-editor-progress-text">{data.labeledInChunk ?? 0} of {data.totalInChunk} labeled</span>
+            </div>
             <div className="chunk-editor-progress-bar" role="progressbar" aria-valuenow={data.labeledInChunk ?? 0} aria-valuemin={0} aria-valuemax={data.totalInChunk}>
               <div className="chunk-editor-progress-fill" style={{ width: `${Math.min(100, ((data.labeledInChunk ?? 0) / data.totalInChunk) * 100)}%` }} />
             </div>
