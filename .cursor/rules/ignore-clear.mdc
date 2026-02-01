@@ -1,0 +1,11 @@
+---
+description: Ignore accidental "clear" messages
+alwaysApply: true
+---
+
+# Ignore "clear"
+
+When the user sends only **"clear"** (or "Clear"), treat it as a mistaken/accidental message (e.g. they meant to clear their terminal, not to ask the AI).
+
+- Do **not** run the `clear` command or take any action.
+- Reply briefly, e.g. "No action taken. If you meant to clear your terminal, run `clear` there (or Cmd+K)."
