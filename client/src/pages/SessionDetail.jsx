@@ -460,7 +460,7 @@ export default function SessionDetail() {
               return (
                 <tr
                   key={ch.id}
-                  className={`chunk-row-clickable ${isContainer ? 'chunk-row-container' : 'chunk-row-leaf'}`}
+                  className={`chunk-row-clickable ${isContainer ? 'chunk-row-container' : 'chunk-row-leaf'} chunk-status-${ch.status ?? 'unclaimed'}`}
                   onClick={() => {
                     if (isContainer) navigate(`/sessions/${id}/chunks/${ch.id}`);
                     else navigate(`/sessions/${id}/chunks/${ch.id}/edit`, {
@@ -482,7 +482,11 @@ export default function SessionDetail() {
                     ) : null}
                   </td>
                   <td>{ch.end_row - ch.start_row} ({ch.start_row + 1}–{ch.end_row})</td>
-                  <td>{ch.status}</td>
+                  <td>
+                    <span className={`chunk-status-badge chunk-status-badge-${ch.status ?? 'unclaimed'}`}>
+                      {ch.status === 'completed' ? 'Completed' : ch.status === 'in_progress' ? 'In progress' : 'Unclaimed'}
+                    </span>
+                  </td>
                   <td>
                     {editingAssigneeChunkId === ch.id ? (
                       <span onClick={(e) => e.stopPropagation()}>

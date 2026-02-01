@@ -694,15 +694,76 @@ table.data-table tbody tr:hover {
 table.data-table tbody tr.chunk-row-clickable {
   cursor: pointer;
 }
-table.data-table tbody tr.chunk-row-container {
-  background: #f0f9ff;
-  border-left: 3px solid #0ea5e9;
+/* Chunk row: status-based left border and background tint */
+table.data-table tbody tr.chunk-status-completed {
+  border-left: 3px solid #10b981;
+  background: #f0fdf4;
 }
-table.data-table tbody tr.chunk-row-container:hover {
+table.data-table tbody tr.chunk-status-completed:hover {
+  background: #dcfce7;
+}
+table.data-table tbody tr.chunk-status-in_progress {
+  border-left: 3px solid #0ea5e9;
+  background: #f0f9ff;
+}
+table.data-table tbody tr.chunk-status-in_progress:hover {
   background: #e0f2fe;
 }
+table.data-table tbody tr.chunk-status-unclaimed {
+  border-left: 3px solid #94a3b8;
+  background: #f8fafc;
+}
+table.data-table tbody tr.chunk-status-unclaimed:hover {
+  background: #f1f5f9;
+}
+/* Container rows keep blue accent; override border/background by status */
+table.data-table tbody tr.chunk-row-container.chunk-status-completed {
+  border-left-color: #10b981;
+  background: #f0fdf4;
+}
+table.data-table tbody tr.chunk-row-container.chunk-status-completed:hover {
+  background: #dcfce7;
+}
+table.data-table tbody tr.chunk-row-container.chunk-status-in_progress {
+  border-left-color: #0ea5e9;
+  background: #f0f9ff;
+}
+table.data-table tbody tr.chunk-row-container.chunk-status-in_progress:hover {
+  background: #e0f2fe;
+}
+table.data-table tbody tr.chunk-row-container.chunk-status-unclaimed {
+  border-left-color: #94a3b8;
+  background: #f8fafc;
+}
+table.data-table tbody tr.chunk-row-container.chunk-status-unclaimed:hover {
+  background: #f1f5f9;
+}
+table.data-table tbody tr.chunk-row-container {
+  border-left-width: 3px;
+  border-left-style: solid;
+}
 table.data-table tbody tr.chunk-row-leaf {
-  border-left: 3px solid transparent;
+  border-left-width: 3px;
+  border-left-style: solid;
+}
+table.data-table .chunk-status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+table.data-table .chunk-status-badge-completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+table.data-table .chunk-status-badge-in_progress {
+  background: #dbeafe;
+  color: #1e40af;
+}
+table.data-table .chunk-status-badge-unclaimed {
+  background: #f1f5f9;
+  color: #64748b;
 }
 table.data-table .chunk-type-icon {
   display: inline-flex;
