@@ -52,8 +52,8 @@ test.describe.serial('Session and chunk e2e', () => {
     expect(match).toBeTruthy();
     sessionId = match ? match[1] : '';
 
-    await expect(page.getByRole('heading', { name: 'Stats' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Overview/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Chunks/ })).toBeVisible();
     // Chunking was configured as range 1–50, equal size 25 → exactly 2 chunks
     const chunksTable = page.getByRole('table');
     await expect(chunksTable).toBeVisible();
@@ -73,7 +73,7 @@ test.describe.serial('Session and chunk e2e', () => {
     }
 
     await page.goto(`/sessions/${sessionId}`);
-    await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Chunks/ })).toBeVisible();
     const chunksTable = page.getByRole('table');
     const firstRow = chunksTable.locator('tbody tr').first();
     await firstRow.getByRole('button', { name: 'Edit assignee' }).click();
@@ -97,14 +97,14 @@ test.describe.serial('Session and chunk e2e', () => {
 
     // Go back to session and verify stats reflect the labeled records
     await page.goto(`/sessions/${sessionId}`);
-    await expect(page.getByRole('heading', { name: 'Stats' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /Overview/ })).toBeVisible({ timeout: 10000 });
     const statsCard = page.locator('.card-stats');
-    await expect(statsCard).toContainText(/Records edited:\s*\d+\s*\/\s*\d+/, { timeout: 5000 });
-    await expect(statsCard).toContainText(/In progress:\s*1/);
-    await expect(statsCard.getByText(/Records edited:/)).toContainText(`${numToLabel}`);
+    await expect(statsCard).toContainText(/\d+\s*\/\s*\d+.*edited/, { timeout: 5000 });
+    await expect(statsCard).toContainText(/1\s+in progress/);
+    await expect(statsCard.getByText(/\d+ \/ \d+ edited/)).toContainText(`${numToLabel}`);
 
     // Resume flow: click chunk row (chunk 0 is in progress); should land in editor without claim form
-    await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Chunks/ })).toBeVisible();
     const firstChunkRow = page.getByRole('table').locator('tbody tr').first();
     await expect(firstChunkRow).toBeVisible({ timeout: 5000 });
     await firstChunkRow.locator('td').first().click();
@@ -122,7 +122,7 @@ test.describe.serial('Session and chunk e2e', () => {
     }
 
     await page.goto(`/sessions/${sessionId}`);
-    await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /Chunks/ })).toBeVisible({ timeout: 10000 });
     // Second chunk (26–50) is unclaimed; click row to open Chunk Editor
     const chunksTable = page.getByRole('table');
     const secondRow = chunksTable.locator('tbody tr').nth(1);
@@ -140,7 +140,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await page.getByRole('button', { name: 'Split' }).click();
     await page.getByRole('button', { name: 'Confirm' }).click();
     await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/chunks/\\d+$`));
-    await expect(page.getByRole('heading', { name: 'Sub-chunks' })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: /Sub-chunks/ })).toBeVisible({ timeout: 5000 });
     const subChunkRows = page.getByRole('table').locator('tbody tr');
     await expect(subChunkRows).toHaveCount(2);
     await expect(page.getByRole('link', { name: 'Back to project' })).toBeVisible();

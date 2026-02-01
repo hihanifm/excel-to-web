@@ -71,7 +71,7 @@ test.describe('Capture quickstart screenshots', () => {
 
     // 07 – Session detail (Stats and Chunks)
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '07-session-detail.png'), fullPage: true });
-    await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /Chunks/ })).toBeVisible({ timeout: 10000 });
 
     // 08 – Chunk Editor (first leaf chunk); claim if unclaimed
     const firstChunkRow = page.getByRole('table').locator('tbody tr').first();
@@ -82,12 +82,13 @@ test.describe('Capture quickstart screenshots', () => {
       await page.locator('#claim-name').fill('Screenshot User');
       await claimButton.click();
       await page.waitForLoadState('networkidle');
-      await page.locator('button.rechunk-widget-trigger, button:has-text("Split this chunk")').first().waitFor({ state: 'visible', timeout: 30000 });
+      await page.getByRole('button', { name: 'Split this chunk' }).waitFor({ state: 'visible', timeout: 30000 });
     }
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '08-chunk-editor.png'), fullPage: true });
 
     // 09 – Re-chunk widget open (trigger is a button with class btn-link)
-    const splitButton = page.locator('button.rechunk-widget-trigger, button:has-text("Split this chunk")').first();
+    const splitButton = page.getByRole('button', { name: 'Split this chunk' });
+    await splitButton.scrollIntoViewIfNeeded();
     await splitButton.click({ timeout: 15000 });
     await page.getByRole('radio', { name: 'Equal' }).check();
     await page.locator('.rechunk-widget-input').first().fill('2');
@@ -97,12 +98,12 @@ test.describe('Capture quickstart screenshots', () => {
 
     // 10 – Chunk Detail (container with sub-chunks)
     await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/chunks/\\d+$`));
-    await expect(page.getByRole('heading', { name: 'Sub-chunks' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /Sub-chunks/ })).toBeVisible({ timeout: 10000 });
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '10-chunk-detail.png'), fullPage: true });
 
     // 11 – Session detail with Export button
     await page.goto(`/sessions/${sessionId}`);
-    await expect(page.getByRole('heading', { name: 'Stats' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /Overview/ })).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('button', { name: /export excel/i })).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '11-export.png'), fullPage: true });
   });
