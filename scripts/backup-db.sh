@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Backup the SQLite database to server/data/backups/
+# By default, skips if the DB has not changed since the last backup (use --force to backup anyway).
 # Usage:
-#   ./scripts/backup-db.sh                      # Backup now
+#   ./scripts/backup-db.sh                      # Backup only if DB changed
+#   ./scripts/backup-db.sh --force              # Backup now even if unchanged
 #   ./scripts/backup-db.sh --keep N             # Keep only last N backups
 #   ./scripts/backup-db.sh --retain-days N      # Delete backups older than N days
 #   ./scripts/backup-db.sh --every-hours N      # Only backup if last backup ≥N hours ago AND DB changed
@@ -32,6 +34,7 @@ OUTPUT=""
 EVERY_HOURS=""
 RETAIN_DAYS=""
 INSTALL_CRON=""
+FORCE=""
 while [[ $# -gt 0 ]]; do
   case $1 in
     --keep) KEEP="$2"; shift 2 ;;
@@ -39,18 +42,22 @@ while [[ $# -gt 0 ]]; do
     --every-hours) EVERY_HOURS="$2"; shift 2 ;;
     --retain-days) RETAIN_DAYS="$2"; shift 2 ;;
     --install-cron) INSTALL_CRON=1; shift ;;
+    --force) FORCE=1; shift ;;
     -h|--help)
-      echo "Usage: $0 [--keep N] [--retain-days N] [--every-hours N] [--output path] [--install-cron]"
+      echo "Usage: $0 [--keep N] [--retain-days N] [--every-hours N] [--output path] [--install-cron] [--force]"
       echo "  --keep N         Keep only last N backups (count-based)"
       echo "  --retain-days N  Delete backups older than N days (duration-based)"
       echo "  --every-hours N  Only backup if last backup ≥N hours ago AND DB changed since last backup"
       echo "  --output path    Custom backup path"
       echo "  --install-cron   Add cron job (runs every hour, backup if 6+ hours since last and DB changed, keep 7 days)"
+      echo "  --force          Create backup even if DB unchanged since last backup"
+      echo ""
+      echo "By default, backup is skipped if the DB has not changed since the last backup (use --force to override)."
       echo ""
       echo "Easy cron setup: ./scripts/backup-db.sh --install-cron   or   ./scripts/backup-cron-setup.sh"
       exit 0
       ;;
-    *) echo "Usage: $0 [--keep N] [--retain-days N] [--every-hours N] [--output path] [--install-cron]" >&2; exit 1 ;;
+    *) echo "Usage: $0 [--keep N] [--retain-days N] [--every-hours N] [--output path] [--install-cron] [--force]" >&2; exit 1 ;;
   esac
 done
 
@@ -99,6 +106,20 @@ if [ -n "$EVERY_HOURS" ] && [ "$EVERY_HOURS" -gt 0 ] 2>/dev/null; then
       exit 0
     fi
     if [ "$DB_MTIME" -le "$LAST_MTIME" ]; then
+      print_cron_line
+      exit 0
+    fi
+  fi
+fi
+
+# Default: skip backup if DB unchanged since last backup (unless --force or custom --output)
+if [ "$FORCE" != "1" ] && [ -z "$OUTPUT" ]; then
+  LATEST=$(ls -t "$BACKUP_DIR"/excel-app-*.db 2>/dev/null | head -1)
+  if [ -n "$LATEST" ]; then
+    LAST_MTIME=$(stat -f %m "$LATEST" 2>/dev/null || stat -c %Y "$LATEST" 2>/dev/null)
+    DB_MTIME=$(stat -f %m "$DB_PATH" 2>/dev/null || stat -c %Y "$DB_PATH" 2>/dev/null)
+    if [ "$DB_MTIME" -le "$LAST_MTIME" ]; then
+      echo "Database unchanged since last backup; skipping."
       print_cron_line
       exit 0
     fi
