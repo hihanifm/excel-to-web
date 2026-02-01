@@ -558,16 +558,24 @@ export default function ChunkEditor() {
             </span>
           )}
         </div>
-        {data.totalInChunk > 0 && (
-          <div className="chunk-editor-progress" aria-label={`${data.labeledInChunk ?? 0} of ${data.totalInChunk} labeled`}>
-            <div className="chunk-editor-progress-label-wrap" style={{ textAlign: 'right' }}>
-              <span className="chunk-editor-progress-text">{data.labeledInChunk ?? 0} of {data.totalInChunk} labeled</span>
+        {data.totalInChunk > 0 && (() => {
+          const labeled = data.labeledInChunk ?? 0;
+          const total = data.totalInChunk;
+          const remaining = total - labeled;
+          const percentage = Math.round((labeled / total) * 100);
+          return (
+            <div className="chunk-editor-progress" aria-label={`${labeled} of ${total} labeled, ${remaining} remaining, ${percentage}% complete`}>
+              <div className="chunk-editor-progress-label-wrap" style={{ textAlign: 'right' }}>
+                <span className="chunk-editor-progress-text">
+                  {labeled} of {total} labeled · <strong>{remaining} left</strong> · {percentage}%
+                </span>
+              </div>
+              <div className="chunk-editor-progress-bar" role="progressbar" aria-valuenow={labeled} aria-valuemin={0} aria-valuemax={total}>
+                <div className="chunk-editor-progress-fill" style={{ width: `${Math.min(100, percentage)}%` }} />
+              </div>
             </div>
-            <div className="chunk-editor-progress-bar" role="progressbar" aria-valuenow={data.labeledInChunk ?? 0} aria-valuemin={0} aria-valuemax={data.totalInChunk}>
-              <div className="chunk-editor-progress-fill" style={{ width: `${Math.min(100, ((data.labeledInChunk ?? 0) / data.totalInChunk) * 100)}%` }} />
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </header>
       {error && <p className="chunk-editor-error" role="alert">{error}</p>}
       {successMessage && <p className="form-success-message" role="status">{successMessage}</p>}

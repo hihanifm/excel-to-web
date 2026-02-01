@@ -377,12 +377,12 @@ export default function SessionDetail() {
               <span className="stats-label">Records</span>
               <span className="stats-value">
                 <strong>{stats.rowsEdited}</strong> / {stats.totalRows} edited
-                {' · '}<strong>{stats.completionPct}%</strong> completion (chunks)
+                {' · '}<strong>{stats.totalRows > 0 ? Math.round((stats.rowsEdited / stats.totalRows) * 100) : 0}%</strong> complete
               </span>
             </div>
           </div>
           <div className="progress-bar" role="presentation" aria-hidden="true">
-            <div className="progress-bar-fill" style={{ width: `${stats.completionPct}%` }} />
+            <div className="progress-bar-fill" style={{ width: `${stats.totalRows > 0 ? Math.round((stats.rowsEdited / stats.totalRows) * 100) : 0}%` }} />
           </div>
         </div>
       )}

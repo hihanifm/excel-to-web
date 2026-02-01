@@ -1,6 +1,7 @@
 import { createContext, useState, useContext } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import Footer from './components/Footer';
+import ThemeToggle from './components/ThemeToggle';
 
 export const ApiStatusContext = createContext(null);
 
@@ -25,6 +26,7 @@ export default function App() {
           <nav className="app-nav">
             <Link to="/" className={isActive('/') && !location.pathname.startsWith('/create') && !location.pathname.startsWith('/compare') ? 'active' : ''}>PROJECTS</Link>
             <Link to="/compare" className={isActive('/compare') ? 'active' : ''}>COMPARE</Link>
+            <ThemeToggle />
           </nav>
         </div>
       </header>

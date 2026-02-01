@@ -110,10 +110,10 @@ export default function SessionList() {
                     <span className="status-badge status-pending">Not configured</span>
                   )}
                 </td>
-                <td><strong>{s.completionPct ?? 0}%</strong></td>
+                <td><strong>{s.recordsCompletionPct ?? 0}%</strong></td>
                 <td>
                   {s.total_rows != null
-                    ? `${(s.rowsEdited ?? 0).toLocaleString()} / ${s.total_rows.toLocaleString()} (${s.recordsCompletionPct ?? 0}%)`
+                    ? `${(s.rowsEdited ?? 0).toLocaleString()} / ${s.total_rows.toLocaleString()}`
                     : '–'}
                 </td>
                 <td>{s.totalChunks != null ? s.totalChunks : '–'}</td>
