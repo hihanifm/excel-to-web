@@ -39,8 +39,8 @@ test.describe.serial('Session and chunk e2e', () => {
 
     await page.getByLabel('Conversation', { exact: true }).check();
     await page.getByLabel('Status', { exact: true }).check();
-    await page.getByRole('radio', { name: /new column/i }).check();
-    await page.getByPlaceholder(/column name/i).fill('target');
+    await page.getByLabel(/label/i).selectOption('Create new column');
+    await page.getByPlaceholder(/label/i).fill('target');
     await page.getByRole('button', { name: /continue/i }).click();
     await expect(page.getByText(/configure the options/i)).toBeVisible();
 

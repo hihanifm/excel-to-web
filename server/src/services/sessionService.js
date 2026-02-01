@@ -163,19 +163,43 @@ export function getSessionConfig(sessionId) {
     ...row,
     left_columns: JSON.parse(row.left_columns || '[]'),
     target_options: JSON.parse(row.target_options || '[]'),
+    assignee_column: row.assignee_column ?? null,
+    tag_column: row.tag_column ?? null,
   };
 }
 
-export function upsertSessionConfig(sessionId, { leftColumns, targetColumn, targetColumnIsNew }) {
+/** Map row_index -> { assignee_name, tag } from leaf chunks. Rows outside chunk ranges are not in map. */
+export function getRowToChunkMapping(sessionId) {
   const db = getDb(process.env.DB_PATH);
+  const chunks = db.prepare(
+    `SELECT start_row, end_row, assignee_name, tag FROM chunks c
+     WHERE c.session_id = ? AND NOT EXISTS (SELECT 1 FROM chunks c2 WHERE c2.parent_id = c.id)`
+  ).all(sessionId);
+  const map = {};
+  for (const c of chunks) {
+    const assignee = (c.assignee_name ?? '').trim();
+    const tag = (c.tag ?? '').trim();
+    for (let r = c.start_row; r < c.end_row; r++) {
+      map[r] = { assignee_name: assignee, tag };
+    }
+  }
+  return map;
+}
+
+export function upsertSessionConfig(sessionId, { leftColumns, targetColumn, targetColumnIsNew, assigneeColumn, tagColumn }) {
+  const db = getDb(process.env.DB_PATH);
+  const assigneeVal = assigneeColumn != null && String(assigneeColumn).trim() !== '' ? String(assigneeColumn).trim() : null;
+  const tagVal = tagColumn != null && String(tagColumn).trim() !== '' ? String(tagColumn).trim() : null;
   db.prepare(
-    `INSERT INTO session_config (session_id, left_columns, target_column, target_column_is_new, target_options)
-     VALUES (?, ?, ?, ?, '[]')
+    `INSERT INTO session_config (session_id, left_columns, target_column, target_column_is_new, target_options, assignee_column, tag_column)
+     VALUES (?, ?, ?, ?, '[]', ?, ?)
      ON CONFLICT(session_id) DO UPDATE SET
        left_columns = excluded.left_columns,
        target_column = excluded.target_column,
-       target_column_is_new = excluded.target_column_is_new`
-  ).run(sessionId, JSON.stringify(leftColumns || []), targetColumn, targetColumnIsNew ? 1 : 0);
+       target_column_is_new = excluded.target_column_is_new,
+       assignee_column = excluded.assignee_column,
+       tag_column = excluded.tag_column`
+  ).run(sessionId, JSON.stringify(leftColumns || []), targetColumn, targetColumnIsNew ? 1 : 0, assigneeVal, tagVal);
 }
 
 export function updateSessionConfigOptions(sessionId, { targetOptions }) {

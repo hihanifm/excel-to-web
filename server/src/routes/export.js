@@ -66,28 +66,50 @@ router.get('/', async (req, res) => {
     const targetColumn = config.target_column;
     const targetColumnIsNew = config.target_column_is_new === 1;
     const targetColIndex = headers.indexOf(targetColumn);
+    const assigneeColumn = (config.assignee_column || '').trim() || null;
+    const tagColumn = (config.tag_column || '').trim() || null;
+    const assigneeColIndex = assigneeColumn ? headers.indexOf(assigneeColumn) : -1;
+    const tagColIndex = tagColumn ? headers.indexOf(tagColumn) : -1;
+    const assigneeIsNew = assigneeColumn && assigneeColIndex === -1;
+    const tagIsNew = tagColumn && tagColIndex === -1;
 
-    const exportHeaders = targetColumnIsNew ? [...headers, targetColumn] : headers;
+    const exportHeaders = [...headers];
+    if (targetColumnIsNew && !exportHeaders.includes(targetColumn)) exportHeaders.push(targetColumn);
+    if (assigneeIsNew && !exportHeaders.includes(assigneeColumn)) exportHeaders.push(assigneeColumn);
+    if (tagIsNew && !exportHeaders.includes(tagColumn)) exportHeaders.push(tagColumn);
     sheet.addRow(exportHeaders);
 
     const edits = sessionService.getAllRowEdits(sessionId);
+    const rowToChunk = (assigneeColumn || tagColumn) ? sessionService.getRowToChunkMapping(sessionId) : {};
     let offset = 0;
     while (true) {
       const rows = sessionService.getSessionRows(sessionId, offset, BATCH);
       if (rows.length === 0) break;
       for (const { row_index, data } of rows) {
-        const rowData = [...data];
+        const rowData = new Array(exportHeaders.length).fill(null);
+        for (let i = 0; i < headers.length; i++) rowData[i] = data[i];
         const editVal = edits[row_index];
-        if (editVal !== undefined) {
-          if (targetColumnIsNew) {
-            while (rowData.length < headers.length) rowData.push(null);
-            rowData.push(editVal);
-          } else if (targetColIndex >= 0) {
-            rowData[targetColIndex] = editVal;
+        if (targetColumnIsNew) {
+          rowData[headers.length] = editVal !== undefined ? editVal : null;
+        } else if (targetColIndex >= 0 && editVal !== undefined) {
+          rowData[targetColIndex] = editVal;
+        }
+        const chunk = rowToChunk[row_index];
+        if (assigneeColumn) {
+          const assigneeVal = chunk?.assignee_name ?? '';
+          if (assigneeColIndex >= 0) {
+            rowData[assigneeColIndex] = assigneeVal;
+          } else {
+            rowData[exportHeaders.indexOf(assigneeColumn)] = assigneeVal;
           }
-        } else if (targetColumnIsNew) {
-          while (rowData.length < headers.length) rowData.push(null);
-          rowData.push(null);
+        }
+        if (tagColumn) {
+          const tagVal = chunk?.tag ?? '';
+          if (tagColIndex >= 0) {
+            rowData[tagColIndex] = tagVal;
+          } else {
+            rowData[exportHeaders.indexOf(tagColumn)] = tagVal;
+          }
         }
         sheet.addRow(rowData);
       }

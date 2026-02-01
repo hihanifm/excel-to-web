@@ -29,10 +29,15 @@ export default function SessionCreate() {
   const [headers, setHeaders] = useState([]);
   const [totalRows, setTotalRows] = useState(0);
   const [leftColumns, setLeftColumns] = useState([]);
-  const [targetColumn, setTargetColumn] = useState('');
-  const [targetColumnIsNew, setTargetColumnIsNew] = useState(false);
-  const [newColumnName, setNewColumnName] = useState('');
+  const [targetColumnChoice, setTargetColumnChoice] = useState('__new__'); // '' | header name | '__new__'
+  const [targetNewColumnName, setTargetNewColumnName] = useState('Label');
   const [targetOptions, setTargetOptions] = useState('Approved, In Progress, Rejected');
+  const [assigneeExportEnabled, setAssigneeExportEnabled] = useState(false);
+  const [assigneeColumnChoice, setAssigneeColumnChoice] = useState(''); // '' | header name | '__new__'
+  const [assigneeNewColumnName, setAssigneeNewColumnName] = useState('Assignee');
+  const [tagExportEnabled, setTagExportEnabled] = useState(false);
+  const [tagColumnChoice, setTagColumnChoice] = useState(''); // '' | header name | '__new__'
+  const [tagNewColumnName, setTagNewColumnName] = useState('Tag');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
@@ -230,7 +235,8 @@ export default function SessionCreate() {
         setStep(4);
         if (headers.length > 0) {
           setLeftColumns([headers[0]]);
-          setTargetColumn(headers.length >= 2 ? headers[headers.length - 1] : '');
+          setTargetColumnChoice('__new__');
+          setTargetNewColumnName('Label');
         }
       })
       .catch((err) => setError(err.message || 'Failed'))
@@ -241,7 +247,8 @@ export default function SessionCreate() {
   const handleSaveColumns = (e) => {
     e.preventDefault();
     setFieldErrors({});
-    const target = targetColumnIsNew ? newColumnName : targetColumn;
+    const target = targetColumnChoice === '__new__' ? (targetNewColumnName.trim() || 'Label') : targetColumnChoice;
+    const targetColumnIsNew = targetColumnChoice === '__new__';
     const errs = {};
     if (!target) errs.targetColumn = 'Select or enter label column';
     if (leftColumns.length === 0) errs.leftColumns = 'Select at least one left column';
@@ -249,6 +256,12 @@ export default function SessionCreate() {
       setFieldErrors(errs);
       return;
     }
+    const assigneeColVal = !assigneeExportEnabled ? null
+      : assigneeColumnChoice === '__new__' ? (assigneeNewColumnName.trim() || 'Assignee')
+      : (assigneeColumnChoice || null);
+    const tagColVal = !tagExportEnabled ? null
+      : tagColumnChoice === '__new__' ? (tagNewColumnName.trim() || 'Tag')
+      : (tagColumnChoice || null);
     setLoading(true);
     setError('');
     fetch(`/api/sessions/${sessionId}/config`, {
@@ -258,6 +271,8 @@ export default function SessionCreate() {
         leftColumns,
         targetColumn: target,
         targetColumnIsNew,
+        assigneeColumn: assigneeColVal,
+        tagColumn: tagColVal,
       }),
     })
       .then(parseJsonResponse)
@@ -603,61 +618,129 @@ export default function SessionCreate() {
           </div>
 
           <div className="form-section">
-            <p className="form-section-title">
-              Label column (one):
+            <div className="form-field" style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: '0.5rem' }}>
+              <span className="form-section-title" style={{ margin: 0, marginRight: '0.25rem' }}>
+                Label column (one):
+              </span>
               <span className="form-field-help">
                 <span className="form-field-help-icon" tabIndex={0} aria-label="Help">ⓘ</span>
                 <span className="form-field-help-text" role="tooltip">The column you'll update with status or choices. The options you configure in the next step become buttons for each record.</span>
               </span>
-            </p>
-            <div className="form-field form-field-radio">
-              <label className="form-radio-label">
-                <input
-                  type="radio"
-                  checked={!targetColumnIsNew}
-                  onChange={() => setTargetColumnIsNew(false)}
-                />
-                Existing column:
-              </label>
-              <div className="form-input">
-                <select
-                  value={targetColumn}
-                  onChange={(e) => setTargetColumn(e.target.value)}
-                  disabled={targetColumnIsNew}
-                  style={{ width: '100%', maxWidth: '14rem' }}
-                  aria-invalid={!!fieldErrors.targetColumn}
-                  aria-describedby={fieldErrors.targetColumn ? 'target-column-error' : undefined}
-                >
-                  <option value="">-- Select --</option>
-                  {headers.map((col) => (
-                    <option key={col} value={col}>{col}</option>
-                  ))}
-                </select>
-                {fieldErrors.targetColumn && <p id="target-column-error" className="form-field-error">{fieldErrors.targetColumn}</p>}
-              </div>
-            </div>
-            <div className="form-field form-field-radio">
-              <label className="form-radio-label">
-                <input
-                  type="radio"
-                  checked={targetColumnIsNew}
-                  onChange={() => setTargetColumnIsNew(true)}
-                />
-                New column:
-              </label>
-              <div className="form-input">
+              <select
+                id="label-column-select"
+                aria-label="Label column"
+                value={targetColumnChoice}
+                onChange={(e) => setTargetColumnChoice(e.target.value)}
+                style={{ width: '12rem' }}
+                aria-invalid={!!fieldErrors.targetColumn}
+                aria-describedby={fieldErrors.targetColumn ? 'target-column-error' : undefined}
+              >
+                <option value="">-- Select column --</option>
+                {headers.map((col) => (
+                  <option key={col} value={col}>{col}</option>
+                ))}
+                <option value="__new__">Create new column</option>
+              </select>
+              {targetColumnChoice === '__new__' && (
                 <input
                   type="text"
-                  value={newColumnName}
-                  onChange={(e) => setNewColumnName(e.target.value)}
-                  placeholder="Column name"
-                  disabled={!targetColumnIsNew}
-                  style={{ width: '100%', maxWidth: '14rem' }}
+                  value={targetNewColumnName}
+                  onChange={(e) => setTargetNewColumnName(e.target.value)}
+                  placeholder="Label"
+                  style={{ width: '10rem' }}
                   aria-invalid={!!fieldErrors.targetColumn}
                 />
-              </div>
+              )}
+              {fieldErrors.targetColumn && <span id="target-column-error" className="form-field-error">{fieldErrors.targetColumn}</span>}
             </div>
           </div>
+
+          <details className="form-advanced">
+            <summary className="form-advanced-summary">Export assignee and tag to columns (optional)</summary>
+            <div className="form-advanced-content">
+              <p className="form-info" style={{ marginBottom: '0.75rem' }}>
+                Chunk assignee and tag values can be written to Excel on export.
+              </p>
+              <div className="form-field" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
+                <label className="form-checkbox-item" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={assigneeExportEnabled}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setAssigneeExportEnabled(checked);
+                      if (checked && !assigneeColumnChoice) setAssigneeColumnChoice('__new__');
+                      if (!checked) setAssigneeColumnChoice('');
+                    }}
+                  />
+                  <span>Assignee:</span>
+                </label>
+                {assigneeExportEnabled && (
+                  <>
+                    <select
+                      value={assigneeColumnChoice}
+                      onChange={(e) => setAssigneeColumnChoice(e.target.value)}
+                      style={{ width: '12rem' }}
+                    >
+                      <option value="">-- Select column --</option>
+                      {headers.map((col) => (
+                        <option key={col} value={col}>{col}</option>
+                      ))}
+                      <option value="__new__">Create new column</option>
+                    </select>
+                    {assigneeColumnChoice === '__new__' && (
+                      <input
+                        type="text"
+                        value={assigneeNewColumnName}
+                        onChange={(e) => setAssigneeNewColumnName(e.target.value)}
+                        placeholder="Assignee"
+                        style={{ width: '8rem' }}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="form-field" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
+                <label className="form-checkbox-item" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={tagExportEnabled}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setTagExportEnabled(checked);
+                      if (checked && !tagColumnChoice) setTagColumnChoice('__new__');
+                      if (!checked) setTagColumnChoice('');
+                    }}
+                  />
+                  <span>Tag:</span>
+                </label>
+                {tagExportEnabled && (
+                  <>
+                    <select
+                      value={tagColumnChoice}
+                      onChange={(e) => setTagColumnChoice(e.target.value)}
+                      style={{ width: '12rem' }}
+                    >
+                      <option value="">-- Select column --</option>
+                      {headers.map((col) => (
+                        <option key={col} value={col}>{col}</option>
+                      ))}
+                      <option value="__new__">Create new column</option>
+                    </select>
+                    {tagColumnChoice === '__new__' && (
+                      <input
+                        type="text"
+                        value={tagNewColumnName}
+                        onChange={(e) => setTagNewColumnName(e.target.value)}
+                        placeholder="Tag"
+                        style={{ width: '8rem' }}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </details>
 
           <div className="form-field form-actions">
             <span className="form-field-spacer" />

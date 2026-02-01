@@ -40,6 +40,13 @@ export function getDb(dbPath) {
     } else if (!chunkCols.includes('tag')) {
       db.exec('ALTER TABLE chunks ADD COLUMN tag TEXT');
     }
+    const configCols = db.prepare('PRAGMA table_info(session_config)').all().map((c) => c.name);
+    if (!configCols.includes('assignee_column')) {
+      db.exec("ALTER TABLE session_config ADD COLUMN assignee_column TEXT DEFAULT 'Assignee'");
+    }
+    if (!configCols.includes('tag_column')) {
+      db.exec("ALTER TABLE session_config ADD COLUMN tag_column TEXT DEFAULT 'Tag'");
+    }
     const sessionCount = db.prepare('SELECT COUNT(*) as n FROM sessions').get().n;
     console.log(`Sessions in DB: ${sessionCount}`);
   }

@@ -313,16 +313,18 @@ router.get('/:id', (req, res) => {
   res.json(result);
 });
 
-// PUT /api/sessions/:id/config — body: { leftColumns[], targetColumn, targetColumnIsNew? }
+// PUT /api/sessions/:id/config — body: { leftColumns[], targetColumn, targetColumnIsNew?, assigneeColumn?, tagColumn? }
 router.put('/:id/config', (req, res) => {
   const sessionId = Number(req.params.id);
   if (!sessionService.getSession(sessionId)) return res.status(404).json({ error: 'Session not found' });
-  const { leftColumns, targetColumn, targetColumnIsNew } = req.body;
+  const { leftColumns, targetColumn, targetColumnIsNew, assigneeColumn, tagColumn } = req.body;
   if (!targetColumn) return res.status(400).json({ error: 'targetColumn required' });
   sessionService.upsertSessionConfig(sessionId, {
     leftColumns: leftColumns || [],
     targetColumn,
     targetColumnIsNew: !!targetColumnIsNew,
+    assigneeColumn: assigneeColumn ?? null,
+    tagColumn: tagColumn ?? null,
   });
   res.json({ ok: true });
 });
