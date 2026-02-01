@@ -244,7 +244,7 @@ export default function SessionDetail() {
             </button>
           )}
           <button className="primary" onClick={handleExport} disabled={exporting}>
-            {exporting ? 'Exporting...' : 'Export Excel'}
+            Export Excel
           </button>
           <button
             type="button"
@@ -255,6 +255,21 @@ export default function SessionDetail() {
           </button>
         </div>
       </header>
+
+      {exporting && (
+        <div className="export-progress-overlay" role="status" aria-live="polite" aria-label="Export in progress">
+          <div className="export-progress-backdrop" />
+          <div className="export-progress-card">
+            <div className="export-progress-spinner" aria-hidden="true" />
+            <p className="export-progress-message">Preparing export…</p>
+            <p className="export-progress-hint">This may take a moment for large sheets.</p>
+            <div className="export-progress-bar" aria-hidden="true">
+              <div className="export-progress-bar-fill" />
+            </div>
+          </div>
+        </div>
+      )}
+
       {exportError && <p style={{ color: '#dc2626', margin: '0.5rem 0 0' }}>{exportError}</p>}
 
       {stats && (

@@ -1259,6 +1259,78 @@ table.data-table tbody tr.session-row-clickable:hover .session-name {
   font-weight: 500;
 }
 
+/* Export progress overlay */
+.export-progress-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+.export-progress-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  animation: export-progress-fade-in 0.2s ease-out;
+}
+.export-progress-card {
+  position: relative;
+  background: var(--card-bg, #1e293b);
+  border: 1px solid var(--border-color, #334155);
+  border-radius: 0.5rem;
+  padding: 1.5rem 2rem;
+  min-width: 280px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  animation: export-progress-pop 0.25s ease-out;
+}
+.export-progress-spinner {
+  width: 2rem;
+  height: 2rem;
+  margin: 0 auto 1rem;
+  border: 3px solid rgba(13, 148, 136, 0.25);
+  border-top-color: #0d9488;
+  border-radius: 50%;
+  animation: form-spinner 0.6s linear infinite;
+}
+.export-progress-message {
+  margin: 0 0 0.25rem;
+  font-weight: 500;
+  color: var(--text-color, #f1f5f9);
+}
+.export-progress-hint {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--muted-color, #94a3b8);
+}
+.export-progress-bar {
+  height: 4px;
+  background: rgba(13, 148, 136, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.export-progress-bar-fill {
+  height: 100%;
+  width: 40%;
+  background: #0d9488;
+  border-radius: 2px;
+  animation: export-progress-bar 1.2s ease-in-out infinite;
+}
+@keyframes export-progress-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes export-progress-pop {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes export-progress-bar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(200%); }
+  100% { transform: translateX(-100%); }
+}
+
 /* Chunk completed celebration overlay */
 .chunk-complete-celebration {
   position: fixed;
