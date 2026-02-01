@@ -22,9 +22,9 @@ export default function ChunkDetail() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      fetch(`/api/sessions/${id}`).then((r) => r.json()),
-      fetch(`/api/sessions/${id}/chunks/${chunkId}`).then((r) => r.json()),
-      fetch(`/api/sessions/${id}/chunks?parentId=${chunkId}`).then((r) => r.json()),
+      fetch(`/api/sessions/${id}`, { cache: 'no-store' }).then((r) => r.json()),
+      fetch(`/api/sessions/${id}/chunks/${chunkId}`, { cache: 'no-store' }).then((r) => r.json()),
+      fetch(`/api/sessions/${id}/chunks?parentId=${chunkId}`, { cache: 'no-store' }).then((r) => r.json()),
     ])
       .then(([s, c, ch]) => {
         setSession(s);

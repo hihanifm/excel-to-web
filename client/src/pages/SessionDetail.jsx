@@ -44,9 +44,9 @@ export default function SessionDetail() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      fetch(`/api/sessions/${id}`).then((r) => r.json()),
-      fetch(`/api/sessions/${id}/stats`).then((r) => r.json()),
-      fetch(`/api/sessions/${id}/chunks`).then((r) => r.json()),
+      fetch(`/api/sessions/${id}`, { cache: 'no-store' }).then((r) => r.json()),
+      fetch(`/api/sessions/${id}/stats`, { cache: 'no-store' }).then((r) => r.json()),
+      fetch(`/api/sessions/${id}/chunks`, { cache: 'no-store' }).then((r) => r.json()),
     ])
       .then(([s, st, ch]) => {
         setSession(s);

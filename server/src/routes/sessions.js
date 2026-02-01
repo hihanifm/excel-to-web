@@ -87,6 +87,7 @@ router.get('/:id/stats', (req, res) => {
   const sessionId = Number(req.params.id);
   const stats = sessionService.getSessionStats(sessionId);
   if (!stats) return res.status(404).json({ error: 'Session not found' });
+  res.set('Cache-Control', 'no-store');
   res.json(stats);
 });
 
@@ -308,6 +309,7 @@ router.get('/:id', (req, res) => {
   delete result.delete_pin; // do not expose PIN hash to client
   if (config) result.config = config;
   if (req.query.stats === '1') result.stats = sessionService.getSessionStats(sessionId);
+  res.set('Cache-Control', 'no-store');
   res.json(result);
 });
 

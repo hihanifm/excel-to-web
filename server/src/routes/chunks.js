@@ -11,6 +11,7 @@ router.get('/', (req, res) => {
     ? Number(req.query.parentId)
     : null;
   const chunks = sessionService.getChunks(sessionId, parentId);
+  res.set('Cache-Control', 'no-store');
   res.json(chunks);
 });
 
@@ -54,7 +55,8 @@ router.put('/:chunkId/assignee', (req, res) => {
   const sessionId = Number(req.params.id);
   const chunkId = Number(req.params.chunkId);
   const { currentName, newName } = req.body;
-  if (!currentName || newName === undefined) return res.status(400).json({ error: 'currentName and newName required' });
+  if (newName === undefined || newName === null) return res.status(400).json({ error: 'newName required' });
+  if (typeof currentName !== 'string') return res.status(400).json({ error: 'currentName required' });
   const result = sessionService.updateChunkAssignee(sessionId, chunkId, currentName, newName);
   if (!result.ok) return res.status(403).json({ error: result.error });
   res.json({ ok: true });
@@ -154,8 +156,8 @@ router.put('/:chunkId/row/:rowOffset', (req, res) => {
   const { name, targetValue } = req.body;
   if (!name || targetValue === undefined) return res.status(400).json({ error: 'name and targetValue required' });
 
-  const assignee = sessionService.getChunkAssignee(sessionId, chunkId);
-  if (assignee !== name) return res.status(403).json({ error: 'Not your chunk' });
+  const assignee = (sessionService.getChunkAssignee(sessionId, chunkId) ?? '').trim();
+  if (assignee !== (name ?? '').trim()) return res.status(403).json({ error: 'Not your chunk' });
 
   const range = sessionService.getChunkRowRange(sessionId, chunkId);
   if (!range) return res.status(404).json({ error: 'Chunk not found' });
@@ -176,6 +178,7 @@ router.get('/:chunkId', (req, res) => {
   if (!sessionService.getSession(sessionId)) return res.status(404).json({ error: 'Session not found' });
   const chunk = sessionService.getChunk(sessionId, chunkId);
   if (!chunk) return res.status(404).json({ error: 'Chunk not found' });
+  res.set('Cache-Control', 'no-store');
   res.json(chunk);
 });
 

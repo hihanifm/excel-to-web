@@ -313,12 +313,15 @@ export function claimChunk(sessionId, chunkId, name) {
   if (!chunk) return { ok: false, error: 'Chunk not found' };
   const hasChildren = db.prepare('SELECT 1 FROM chunks WHERE parent_id = ? LIMIT 1').get(chunk.id);
   if (hasChildren) return { ok: false, error: 'Cannot claim a container chunk; open it to claim a leaf' };
-  if (chunk.status !== 'unclaimed' && chunk.assignee_name !== name) {
+  const nameTrimmed = (name ?? '').trim();
+  if (!nameTrimmed) return { ok: false, error: 'Name required' };
+  const existing = (chunk.assignee_name ?? '').trim();
+  if (chunk.status !== 'unclaimed' && existing && existing !== nameTrimmed) {
     return { ok: false, error: 'Chunk already claimed by someone else' };
   }
   db.prepare(
     'UPDATE chunks SET assignee_name = ?, claimed_at = datetime(\'now\'), status = ? WHERE id = ?'
-  ).run(name, 'in_progress', chunk.id);
+  ).run(nameTrimmed, 'in_progress', chunk.id);
   return { ok: true };
 }
 
@@ -328,7 +331,9 @@ export function completeChunk(sessionId, chunkId, name) {
     'SELECT * FROM chunks WHERE session_id = ? AND id = ?'
   ).get(sessionId, chunkId);
   if (!chunk) return { ok: false, error: 'Chunk not found' };
-  if (chunk.assignee_name !== name) return { ok: false, error: 'Not your chunk' };
+  const nameTrimmed = (name ?? '').trim();
+  const existing = (chunk.assignee_name ?? '').trim();
+  if (existing !== nameTrimmed) return { ok: false, error: 'Not your chunk' };
   db.prepare(
     'UPDATE chunks SET status = ?, completed_at = datetime(\'now\') WHERE id = ?'
   ).run('completed', chunk.id);
@@ -364,25 +369,25 @@ export function updateChunkTag(sessionId, chunkId, tag) {
   return { ok: true };
 }
 
-/** Update assignee name. If chunk has assignee, currentName must match; if chunk has no assignee, currentName must be empty (setting initial assignee). */
+/** Update assignee name. If chunk has assignee, currentName must match (trimmed); if chunk has no assignee, currentName must be empty (setting initial assignee). */
 export function updateChunkAssignee(sessionId, chunkId, currentName, newName) {
   const db = getDb(process.env.DB_PATH);
   const chunk = db.prepare(
     'SELECT assignee_name FROM chunks WHERE session_id = ? AND id = ?'
   ).get(sessionId, chunkId);
   if (!chunk) return { ok: false, error: 'Chunk not found' };
-  const existing = chunk.assignee_name ?? '';
-  const current = currentName ?? '';
-  if (existing.trim()) {
+  const existing = (chunk.assignee_name ?? '').trim();
+  const current = (currentName ?? '').trim();
+  if (existing) {
     if (existing !== current) return { ok: false, error: 'Not your chunk' };
   } else {
-    if (current.trim()) return { ok: false, error: 'Not your chunk' };
+    if (current) return { ok: false, error: 'Not your chunk' };
   }
   const trimmed = (newName ?? '').trim();
   if (!trimmed) return { ok: false, error: 'Name cannot be empty' };
   db.prepare(
-    'UPDATE chunks SET assignee_name = ? WHERE id = ?'
-  ).run(trimmed, chunk.id);
+    'UPDATE chunks SET assignee_name = ? WHERE session_id = ? AND id = ?'
+  ).run(trimmed, sessionId, chunkId);
   return { ok: true };
 }
 
@@ -451,8 +456,8 @@ export function saveRowEdit(sessionId, rowIndex, targetValue) {
 
 /** Mark rows as viewed by user (set user_edited=1 so they count in progress). */
 export function markRowsAsViewed(sessionId, chunkId, name, rowOffsets) {
-  const assignee = getChunkAssignee(sessionId, chunkId);
-  if (assignee !== name) return { ok: false, error: 'Not your chunk' };
+  const assignee = (getChunkAssignee(sessionId, chunkId) ?? '').trim();
+  if (assignee !== (name ?? '').trim()) return { ok: false, error: 'Not your chunk' };
   const range = getChunkRowRange(sessionId, chunkId);
   if (!range) return { ok: false, error: 'Chunk not found' };
   const totalInChunk = range.endRow - range.startRow;
