@@ -447,9 +447,9 @@ export default function SessionDetail() {
           <thead>
             <tr>
               <th>Chunk</th>
-              <th>Records</th>
-              <th>Status</th>
               <th>Assignee</th>
+              <th>Status</th>
+              <th>Records</th>
               <th>Tag</th>
               <th>Progress</th>
             </tr>
@@ -480,24 +480,6 @@ export default function SessionDetail() {
                     {isContainer && (ch.childCount ?? 0) > 0 ? (
                       <span className="chunk-subcount" title={`${ch.childCount} sub-chunks`}> ({ch.childCount})</span>
                     ) : null}
-                  </td>
-                  <td>
-                    {(() => {
-                      const count = ch.end_row - ch.start_row;
-                      const total = stats?.totalRows ?? 0;
-                      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-                      return (
-                        <>
-                          {count} ({ch.start_row + 1}–{ch.end_row})
-                          {total > 0 && <span className="chunk-records-pct"> · {pct}%</span>}
-                        </>
-                      );
-                    })()}
-                  </td>
-                  <td>
-                    <span className={`chunk-status-badge chunk-status-badge-${ch.status ?? 'unclaimed'}`}>
-                      {ch.status === 'completed' ? 'Completed' : ch.status === 'in_progress' ? 'In progress' : 'Unclaimed'}
-                    </span>
                   </td>
                   <td>
                     {editingAssigneeChunkId === ch.id ? (
@@ -532,6 +514,24 @@ export default function SessionDetail() {
                         </button>
                       </>
                     )}
+                  </td>
+                  <td>
+                    <span className={`chunk-status-badge chunk-status-badge-${ch.status ?? 'unclaimed'}`}>
+                      {ch.status === 'completed' ? 'Completed' : ch.status === 'in_progress' ? 'In progress' : 'Unclaimed'}
+                    </span>
+                  </td>
+                  <td>
+                    {(() => {
+                      const count = ch.end_row - ch.start_row;
+                      const total = stats?.totalRows ?? 0;
+                      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                      return (
+                        <>
+                          {count} ({ch.start_row + 1}–{ch.end_row})
+                          {total > 0 && <span className="chunk-records-pct"> · {pct}%</span>}
+                        </>
+                      );
+                    })()}
                   </td>
                   <td>
                     {editingTagChunkId === ch.id ? (

@@ -1205,7 +1205,6 @@ table.data-table tbody tr.session-row-clickable:hover .session-name {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  border-left: 4px solid #0d9488;
 }
 .chunk-editor-shortcuts-card[open] {
   padding-bottom: 1rem;
@@ -1312,12 +1311,11 @@ table.data-table tbody tr.session-row-clickable:hover .session-name {
 .rechunk-widget-card {
   margin-top: 1.5rem;
 }
-/* Collapsible re-chunk: match keyboard shortcuts card (teal left border, same summary style) */
+/* Collapsible re-chunk: match keyboard shortcuts card (same summary style) */
 .rechunk-widget-card-collapsible.rechunk-widget-card {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  border-left: 4px solid #0d9488;
 }
 .rechunk-widget-card-collapsible.rechunk-widget-card[open] {
   padding-bottom: 1rem;
