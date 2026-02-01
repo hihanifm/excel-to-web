@@ -116,6 +116,9 @@ echo ""
 
 # Backup status (shown in all modes)
 BACKUP_LOCK="$ROOT/server/data/backups/.backup.lock"
+has_backup_cron() {
+  crontab -l 2>/dev/null | grep -q "backup-db.sh"
+}
 show_backup_status() {
   if [ -f "$BACKUP_LOCK" ]; then
     BACKUP_PID=$(cat "$BACKUP_LOCK" 2>/dev/null)
@@ -123,10 +126,18 @@ show_backup_status() {
       echo "Backup: ✓ Running (PID $BACKUP_PID)"
     else
       rm -f "$BACKUP_LOCK"
-      echo "Backup: ✗ Not running"
+      if has_backup_cron; then
+        echo "Backup: ✓ Scheduled (cron)"
+      else
+        echo "Backup: ✗ Not running"
+      fi
     fi
   else
-    echo "Backup: ✗ Not running"
+    if has_backup_cron; then
+      echo "Backup: ✓ Scheduled (cron)"
+    else
+      echo "Backup: ✗ Not running"
+    fi
   fi
 }
 
