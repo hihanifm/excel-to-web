@@ -28,12 +28,13 @@ test.describe.serial('Session and chunk e2e', () => {
     await page.getByRole('combobox').selectOption({ label: 'Sample' });
     await page.getByRole('button', { name: /continue/i }).click();
     await expect(page.getByText(/sheet has.*records/i)).toBeVisible();
-    // Chunking: range 1–50, Equal with 2 sub-chunks → 2 chunks (1–25, 26–50)
+    // Chunking: range 1–50, Equal with 2 sub-chunks → 2 chunks (1–25, 26–50); confirm step then Continue
     await page.locator('input[id="from-row"]').fill('1');
     await page.locator('input[id="to-row"]').fill('50');
     await page.getByRole('radio', { name: 'Equal' }).check();
     await page.locator('.rechunk-widget-input').first().fill('2');
     await page.getByRole('button', { name: /^continue$/i }).click();
+    await page.getByRole('button', { name: 'Confirm' }).click();
     await expect(page.getByText(/left panel columns/i)).toBeVisible();
 
     await page.getByLabel('Conversation', { exact: true }).check();

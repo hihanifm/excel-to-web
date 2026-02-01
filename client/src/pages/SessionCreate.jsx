@@ -564,7 +564,7 @@ export default function SessionCreate() {
             totalRecords={rangeLength}
             title="Chunking"
             description="Split the chosen range into chunks. Each chunk is one review unit."
-            confirmStep={false}
+            confirmStep
             submitLabel="Continue"
             onSubmit={handleChunkingFromWidget}
             collapsible={false}

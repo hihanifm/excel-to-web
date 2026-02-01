@@ -271,7 +271,7 @@ export default function ChunkDetail() {
                     </span>
                     {ch.chunk_index + 1}
                   </td>
-                  <td>{ch.start_row + 1}–{ch.end_row}</td>
+                  <td>{ch.end_row - ch.start_row} ({ch.start_row + 1}–{ch.end_row})</td>
                   <td>{ch.status}</td>
                   <td>
                     {editingAssigneeChunkId === ch.id ? (
