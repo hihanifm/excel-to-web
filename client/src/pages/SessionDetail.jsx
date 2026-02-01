@@ -481,7 +481,19 @@ export default function SessionDetail() {
                       <span className="chunk-subcount" title={`${ch.childCount} sub-chunks`}> ({ch.childCount})</span>
                     ) : null}
                   </td>
-                  <td>{ch.end_row - ch.start_row} ({ch.start_row + 1}–{ch.end_row})</td>
+                  <td>
+                    {(() => {
+                      const count = ch.end_row - ch.start_row;
+                      const total = stats?.totalRows ?? 0;
+                      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                      return (
+                        <>
+                          {count} ({ch.start_row + 1}–{ch.end_row})
+                          {total > 0 && <span className="chunk-records-pct"> · {pct}%</span>}
+                        </>
+                      );
+                    })()}
+                  </td>
                   <td>
                     <span className={`chunk-status-badge chunk-status-badge-${ch.status ?? 'unclaimed'}`}>
                       {ch.status === 'completed' ? 'Completed' : ch.status === 'in_progress' ? 'In progress' : 'Unclaimed'}

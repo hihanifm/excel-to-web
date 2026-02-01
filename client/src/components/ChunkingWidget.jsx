@@ -143,11 +143,13 @@ export default function ChunkingWidget({
 
   const showForm = open && (totalRecords == null || totalRecords > 0);
 
-  return (
-    <div className="card rechunk-widget-card">
-      <header className="rechunk-widget-header">
-        <h2 className="rechunk-widget-title">{title}</h2>
-      </header>
+  const content = (
+    <>
+      {!collapsible && (
+        <header className="rechunk-widget-header">
+          <h2 className="rechunk-widget-title">{title}</h2>
+        </header>
+      )}
       <p className="rechunk-widget-desc">{description}</p>
       {totalRecords != null && totalRecords > 0 && (
         <p className="rechunk-widget-stats" aria-label="Chunk stats">
@@ -258,6 +260,25 @@ export default function ChunkingWidget({
           {triggerLabel}
         </button>
       ) : null}
+    </>
+  );
+
+  if (collapsible) {
+    return (
+      <details
+        className="card rechunk-widget-card rechunk-widget-card-collapsible"
+        open={open}
+        onToggle={(e) => setOpen(e.target.open)}
+      >
+        <summary className="rechunk-widget-summary">{title}</summary>
+        {open ? <div className="rechunk-widget-collapsible-body">{content}</div> : null}
+      </details>
+    );
+  }
+
+  return (
+    <div className="card rechunk-widget-card">
+      {content}
     </div>
   );
 }

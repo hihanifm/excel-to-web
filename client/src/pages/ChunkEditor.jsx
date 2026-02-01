@@ -741,6 +741,17 @@ export default function ChunkEditor() {
         </>
       )}
       </div>
+      {!loading && data.rows.length > 0 && (
+        <details className="card chunk-editor-shortcuts-card" role="region" aria-label="Keyboard shortcuts">
+          <summary className="chunk-editor-shortcuts-summary">⌨️ Keyboard shortcuts</summary>
+          <ul className="chunk-editor-shortcuts-list">
+            <li><kbd>←</kbd> <kbd>→</kbd> Move between records (previous / next).</li>
+            <li><kbd>1</kbd>–<kbd>9</kbd> Apply the corresponding label (1 = first option, 2 = second, etc.).</li>
+            <li>Records <strong>auto-advance</strong> after you select a label by default; turn this off in the settings below.</li>
+            <li>View more records at once: change <strong>Records per view</strong> in the settings below.</li>
+          </ul>
+        </details>
+      )}
       {rechunkError && <p className="chunk-editor-error" role="alert">{rechunkError}</p>}
       <ChunkingWidget
         totalRecords={data.totalInChunk}
