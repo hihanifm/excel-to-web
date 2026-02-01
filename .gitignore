@@ -4,6 +4,7 @@ server/data/*.db-shm
 server/data/*.db-wal
 server/data/uploads/
 server/data/*.xlsx
+server/data/backups/
 .env
 client/dist/
 *.log

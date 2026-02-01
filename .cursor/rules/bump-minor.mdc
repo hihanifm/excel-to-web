@@ -8,7 +8,7 @@ alwaysApply: true
 When the user says **"bump minor"**:
 
 1. **Run tests** – `npm run test:e2e` (or the project's test command).
-2. **Only if all tests succeed** – Bump the minor version in the root `package.json` (e.g. 0.10.0 → 0.11.0), then commit and push:
+2. **Only if all tests succeed** – Bump the minor version in the `VERSION` file (e.g. 1.4.0 → 1.5.0), then commit and push:
    - `git add -A && git commit -m "chore: bump version to X.Y.0" && git push`
    - Request `git_write` and `network` permissions.
 3. **If any test fails** – Do not bump the version. Do not commit or push. Report the failure to the user.

@@ -7,19 +7,27 @@ LOG_DIR="$ROOT/logs"
 BACKEND_PORT=36000
 FRONTEND_PORT=36001
 PROD=false
+PM2=false
 
-while getopts p opt; do
-  case $opt in
-    p) PROD=true ;;
-    *) echo "Usage: $0 [-p] (default: dev; -p = prod)" >&2; exit 1 ;;
+for arg in "$@"; do
+  case "$arg" in
+    -p|--prod) PROD=true ;;
+    -m|--pm2) PM2=true; PROD=true ;;
+    -h|--help)
+      echo "Usage: $0 [-p|--prod] [-m|--pm2]"
+      echo "  -p, --prod   Production mode (build client, single process)"
+      echo "  -m, --pm2    PM2 mode (auto-restart on crash, use with pm2-startup.sh for start on boot)"
+      exit 0
+      ;;
+    *) echo "Usage: $0 [-p|--prod] [-m|--pm2]" >&2; exit 1 ;;
   esac
 done
 
 cd "$ROOT"
 
 get_version() {
-  if [ -f "$ROOT/package.json" ]; then
-    grep -o '"version": "[^"]*"' "$ROOT/package.json" | head -1 | cut -d'"' -f4
+  if [ -f "$ROOT/VERSION" ]; then
+    cat "$ROOT/VERSION" | tr -d '\n\r'
   else
     echo "unknown"
   fi
@@ -131,6 +139,50 @@ check_firewall_status() {
 
 mkdir -p "$LOG_DIR"
 VERSION=$(get_version)
+
+# PM2 mode: clean up first, then start with PM2 (auto-restart on crash)
+if [ "$PM2" = true ]; then
+  if ! command -v pm2 >/dev/null 2>&1; then
+    echo "❌ PM2 not found. Install with: npm install -g pm2"
+    exit 1
+  fi
+  echo "Stopping any existing processes..."
+  "$SCRIPT_DIR/stop.sh" 2>/dev/null || true
+  sleep 2
+  echo "Building client (latest code)..."
+  (cd "$ROOT/client" && npm run build) > "$LOG_DIR/frontend-build.log" 2>&1
+  if [ $? -ne 0 ]; then
+    echo "❌ Client build failed. Check $LOG_DIR/frontend-build.log"
+    exit 1
+  fi
+  echo "✓ Client built"
+  echo "Starting with PM2 (auto-restart on crash)..."
+  cd "$ROOT"
+  pm2 start ecosystem.config.cjs
+  sleep 2
+  if ! check_port $BACKEND_PORT; then
+    echo "❌ Backend failed to start. Check: pm2 logs excel-to-web"
+    exit 1
+  fi
+  echo "✓ PM2 started"
+  LOCAL_IP=$(get_local_ip)
+  echo ""
+  echo "Version: $VERSION"
+  echo ""
+  echo "Access:"
+  echo "  http://localhost:$BACKEND_PORT"
+  [ -n "$LOCAL_IP" ] && echo "  http://$LOCAL_IP:$BACKEND_PORT"
+  echo ""
+  echo "PM2 commands:"
+  echo "  pm2 status              (check status)"
+  echo "  pm2 logs excel-to-web   (view logs)"
+  echo "  pm2 restart excel-to-web"
+  echo ""
+  echo "Start on boot: run ./scripts/pm2-startup.sh"
+  check_firewall_status
+  echo ""
+  exit 0
+fi
 
 # Check if ports are already in use
 PORTS_IN_USE=false

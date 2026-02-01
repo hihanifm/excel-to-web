@@ -1,11 +1,12 @@
 {
   "name": "excel-to-web",
-  "version": "1.4.0",
+  "version": "0.0.0",
   "private": true,
   "scripts": {
     "setup": "./scripts/setup.sh",
     "start": "./scripts/start.sh",
     "stop": "./scripts/stop.sh",
+    "backup-db": "./scripts/backup-db.sh",
     "status": "./scripts/status.sh",
     "start:server": "cd server && node src/server.js",
     "start:client": "cd client && npm run dev",

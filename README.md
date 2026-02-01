@@ -1,6 +1,6 @@
 # Excel Data Labeller
 
-Web app for chunked editing of large Excel files: upload, choose sheet, configure columns and target options, then let employees claim chunks and edit one row at a time (or N rows). Export merges all edits with a pre-export integrity check. **Version** is maintained in the root `package.json` only; scripts and the UI read from there.
+Web app for chunked editing of large Excel files: upload, choose sheet, configure columns and target options, then let employees claim chunks and edit one row at a time (or N rows). Export merges all edits with a pre-export integrity check. **Version** is maintained in the root `VERSION` file; scripts and the UI read from there.
 
 ## Stack
 
@@ -84,9 +84,9 @@ docker compose down   # stop; data kept in volume excel-data
 
 ### Manual / PM2 (Linux)
 
-- Dev: `cd server && PORT=36000 npm run dev` and `cd client && npm run dev` (frontend uses 36001).
-- Prod: `cd server && PORT=36000 npm start` (serves client/dist).
-- PM2: set `PORT=36000` in ecosystem.config.cjs env, then `pm2 start ecosystem.config.cjs`.
+- Dev: `npm run start` (backend 36000 + frontend 36001).
+- Prod: `./scripts/start.sh -p` (single process, serves client/dist).
+- PM2 (auto-restart on crash): `./scripts/start.sh --pm2`. Then for start on boot: `./scripts/pm2-startup.sh` and run the command PM2 outputs.
 
 ## Env (server)
 
@@ -105,4 +105,9 @@ You can place `.xlsx` or `.xls` files in the preloaded folder (default `~/.excel
 
 - **DB:** SQLite at `server/data/excel-app.db` (create `server/data` if needed)
 - **Uploads:** Stored under `server/data/uploads/`
-- Back up the `.db` file regularly for long-lived projects.
+- **Backup:** `./scripts/backup-db.sh` backs up the DB to `server/data/backups/`.
+  - `--keep N` – retain only last N backups (count)
+  - `--retain-days N` – delete backups older than N days (duration)
+  - `--every-hours N` – only backup if last backup ≥N hours ago AND DB changed (for cron)
+  - Example cron (every hour, backup if 6+ hours since last and DB changed, keep 7 days):
+    `0 * * * * cd /path/to/excel-to-web && ./scripts/backup-db.sh --every-hours 6 --retain-days 7`

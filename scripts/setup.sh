@@ -5,8 +5,8 @@ cd "$ROOT"
 
 # Function to get version
 get_version() {
-  if [ -f "$ROOT/package.json" ]; then
-    grep -o '"version": "[^"]*"' "$ROOT/package.json" | head -1 | cut -d'"' -f4
+  if [ -f "$ROOT/VERSION" ]; then
+    cat "$ROOT/VERSION" | tr -d '\n\r'
   else
     echo "unknown"
   fi
@@ -65,6 +65,13 @@ if command_exists docker; then
   fi
 else
   echo "ℹ️  Docker not found (optional - for Docker deployment)"
+fi
+
+# Optional PM2 (auto-restart, start on boot)
+if command_exists pm2; then
+  echo "✓ PM2 found: $(pm2 --version 2>/dev/null || echo 'installed')"
+else
+  echo "ℹ️  PM2 not found (optional - for auto-restart and start on boot: npm install -g pm2)"
 fi
 echo ""
 
@@ -128,6 +135,8 @@ echo ""
 echo "Next steps:"
 echo "  npm run start          (dev: backend 36000 + frontend 36001)"
 echo "  npm run start -- -p    (prod: single process on 36000)"
+echo "  npm run start -- --pm2 (prod with PM2: auto-restart, then ./scripts/pm2-startup.sh for start on boot)"
 echo "  ./scripts/status.sh    (check status)"
 echo "  ./scripts/stop.sh      (stop servers)"
+echo "  ./scripts/backup-db.sh (backup DB to server/data/backups/; use --keep N to retain last N)"
 echo ""

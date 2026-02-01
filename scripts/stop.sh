@@ -5,8 +5,8 @@ BACKEND_PORT=36000
 FRONTEND_PORT=36001
 
 get_version() {
-  if [ -f "$ROOT/package.json" ]; then
-    grep -o '"version": "[^"]*"' "$ROOT/package.json" | head -1 | cut -d'"' -f4
+  if [ -f "$ROOT/VERSION" ]; then
+    cat "$ROOT/VERSION" | tr -d '\n\r'
   else
     echo "unknown"
   fi

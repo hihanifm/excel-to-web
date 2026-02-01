@@ -6,8 +6,8 @@ BACKEND_PORT=36000
 FRONTEND_PORT=36001
 
 get_version() {
-  if [ -f "$ROOT/package.json" ]; then
-    grep -o '"version": "[^"]*"' "$ROOT/package.json" | head -1 | cut -d'"' -f4
+  if [ -f "$ROOT/VERSION" ]; then
+    cat "$ROOT/VERSION" | tr -d '\n\r'
   else
     echo "unknown"
   fi
@@ -114,10 +114,27 @@ echo "excel-to-web status (v$VERSION)"
 echo "=============================="
 echo ""
 
+# Backup status (shown in all modes)
+BACKUP_LOCK="$ROOT/server/data/backups/.backup.lock"
+show_backup_status() {
+  if [ -f "$BACKUP_LOCK" ]; then
+    BACKUP_PID=$(cat "$BACKUP_LOCK" 2>/dev/null)
+    if [ -n "$BACKUP_PID" ] && ps -p "$BACKUP_PID" >/dev/null 2>&1; then
+      echo "Backup: ✓ Running (PID $BACKUP_PID)"
+    else
+      rm -f "$BACKUP_LOCK"
+      echo "Backup: ✗ Not running"
+    fi
+  else
+    echo "Backup: ✗ Not running"
+  fi
+}
+
 # Docker
 if command -v docker >/dev/null 2>&1; then
   if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "excel-to-web"; then
     echo "Mode: Docker"
+    show_backup_status
     echo ""
     cd "$ROOT"
     if docker compose version >/dev/null 2>&1; then
@@ -141,6 +158,7 @@ fi
 if command -v pm2 >/dev/null 2>&1; then
   if pm2 list 2>/dev/null | grep -q "excel-to-web"; then
     echo "Mode: PM2"
+    show_backup_status
     echo ""
     pm2 list | head -10
     echo ""
@@ -150,6 +168,11 @@ if command -v pm2 >/dev/null 2>&1; then
       echo "  http://localhost:$BACKEND_PORT"
       [ -n "$LOCAL_IP" ] && echo "  http://$LOCAL_IP:$BACKEND_PORT"
     fi
+    echo ""
+    echo "PM2 commands:"
+    echo "  pm2 logs excel-to-web   (view logs)"
+    echo "  pm2 restart excel-to-web"
+    echo "  ./scripts/pm2-startup.sh   (enable start on boot)"
     echo ""
     check_firewall_status
     exit 0
@@ -165,6 +188,8 @@ elif lsof -Pi :$BACKEND_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
 fi
 
 [ -n "$MODE" ] && echo "Mode: $MODE" && echo ""
+show_backup_status
+echo ""
 
 if [ -f "$PID_FILE" ]; then
   echo "From server.pids:"
