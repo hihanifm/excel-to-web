@@ -15,8 +15,9 @@ for arg in "$@"; do
     -m|--pm2) PM2=true; PROD=true ;;
     -h|--help)
       echo "Usage: $0 [-p|--prod] [-m|--pm2]"
-      echo "  -p, --prod   Production mode (build client, single process)"
-      echo "  -m, --pm2    PM2 mode (auto-restart on crash, use with pm2-startup.sh for start on boot)"
+      echo "  Default: dev (backend + Vite dev server, frontend on $FRONTEND_PORT)"
+      echo "  -p, --prod  Production mode (build client, single process on $BACKEND_PORT)"
+      echo "  -m, --pm2   PM2 mode (auto-restart on crash, use with pm2-startup.sh for start on boot)"
       exit 0
       ;;
     *) echo "Usage: $0 [-p|--prod] [-m|--pm2]" >&2; exit 1 ;;
