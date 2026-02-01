@@ -66,11 +66,12 @@ test.describe('Capture quickstart screenshots', () => {
     await expect(page).toHaveURL(/\/sessions\/\d+$/, { timeout: 30000 });
     const sessionId = page.url().match(/\/sessions\/(\d+)$/)?.[1];
     expect(sessionId).toBeTruthy();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(2000);
 
     // 07 – Session detail (Stats and Chunks)
-    await expect(page.getByRole('heading', { name: 'Stats' })).toBeVisible({ timeout: 15000 });
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '07-session-detail.png'), fullPage: true });
+    await expect(page.getByRole('heading', { name: 'Chunks' })).toBeVisible({ timeout: 10000 });
 
     // 08 – Chunk Editor (first leaf chunk); claim if unclaimed
     const firstChunkRow = page.getByRole('table').locator('tbody tr').first();
@@ -80,12 +81,14 @@ test.describe('Capture quickstart screenshots', () => {
     if (await claimButton.isVisible().catch(() => false)) {
       await page.locator('#claim-name').fill('Screenshot User');
       await claimButton.click();
-      await page.getByRole('button', { name: 'Split this chunk' }).waitFor({ state: 'visible', timeout: 20000 });
+      await page.waitForLoadState('networkidle');
+      await page.locator('button.rechunk-widget-trigger, button:has-text("Split this chunk")').first().waitFor({ state: 'visible', timeout: 30000 });
     }
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '08-chunk-editor.png'), fullPage: true });
 
-    // 09 – Re-chunk widget open
-    await page.getByRole('button', { name: 'Split this chunk' }).click();
+    // 09 – Re-chunk widget open (trigger is a button with class btn-link)
+    const splitButton = page.locator('button.rechunk-widget-trigger, button:has-text("Split this chunk")').first();
+    await splitButton.click({ timeout: 15000 });
     await page.getByRole('radio', { name: 'Equal' }).check();
     await page.locator('.rechunk-widget-input').first().fill('2');
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '09-rechunk-widget.png'), fullPage: true });

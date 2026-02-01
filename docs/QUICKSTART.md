@@ -116,10 +116,15 @@ flowchart LR
 
 ## How to capture screenshots
 
-If you need to refresh the screenshots in `docs/quickstart/`:
+Screenshots in `docs/quickstart/` can be generated with Playwright or captured manually.
 
+**Option A – Playwright (automated)**  
+1. Start the app on **http://localhost:36001** (run `npm run start`; if the frontend uses another port, run the test with that base URL).
+2. From the project root, run:  
+   `npm run docs:screenshots`  
+   This creates/overwrites `01-projects-list.png` through `11-export.png` in `docs/quickstart/`. If the run stops before 09–11 (e.g. claim or re-chunk step), capture those manually.
+
+**Option B – Manual**  
 1. Start the app: `npm run start`, then open http://localhost:36001.
-2. Create a project with `samples/sample.xlsx` (or any Excel file) so screens show real data.
-3. Capture each state listed in the plan (projects list, create steps, session detail, chunk editor, re-chunk widget, chunk detail, export). Save as `01-projects-list.png` through `11-export.png` in `docs/quickstart/`.
-
-You can use the browser’s screenshot feature, Playwright, or any MCP browser tool that saves screenshots to these paths.
+2. Create a project with `samples/sample.xlsx` (or any Excel file).
+3. Capture each state (projects list, create steps, session detail, chunk editor, re-chunk widget, chunk detail, export). Save as `01-projects-list.png` through `11-export.png` in `docs/quickstart/`.

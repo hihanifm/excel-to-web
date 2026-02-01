@@ -8,7 +8,8 @@
     "stop": "./scripts/stop.sh",
     "status": "./scripts/status.sh",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "docs:screenshots": "playwright test e2e/capture-quickstart-screenshots.spec.js -c playwright.screenshots.config.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0"
