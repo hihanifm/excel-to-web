@@ -234,7 +234,7 @@ export default function ChunkDetail() {
         {completeError && <p style={{ color: '#dc2626', margin: '0.5rem 0 0' }}>{completeError}</p>}
       </header>
 
-      <h2>Sub-chunks</h2>
+      <h2 className="section-title">📦 Sub-chunks</h2>
       <div className="table-wrap">
         <table className="data-table">
           <thead>

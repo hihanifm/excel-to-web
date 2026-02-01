@@ -276,7 +276,7 @@ export default function Compare() {
 
           {compareResult && (
             <div style={{ marginTop: '2rem' }}>
-              <h2>Results</h2>
+              <h2 className="section-title">✅ Results</h2>
               {compareResult.totalRows !== undefined && (
                 <>
                   <p>

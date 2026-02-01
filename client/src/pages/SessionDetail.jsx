@@ -35,8 +35,11 @@ export default function SessionDetail() {
   const [editingAssigneeChunkId, setEditingAssigneeChunkId] = useState(null);
   const [assigneeSavingChunkId, setAssigneeSavingChunkId] = useState(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [editingSessionName, setEditingSessionName] = useState(false);
+  const [nameSaving, setNameSaving] = useState(false);
   const tagInputRef = useRef(null);
   const assigneeInputRef = useRef(null);
+  const sessionNameInputRef = useRef(null);
 
   const load = () => {
     setLoading(true);
@@ -67,6 +70,10 @@ export default function SessionDetail() {
   useEffect(() => {
     if (editingAssigneeChunkId != null) assigneeInputRef.current?.focus();
   }, [editingAssigneeChunkId]);
+
+  useEffect(() => {
+    if (editingSessionName) sessionNameInputRef.current?.focus();
+  }, [editingSessionName]);
 
   const handleDelete = () => {
     setDeleting(true);
@@ -200,6 +207,37 @@ export default function SessionDetail() {
     }
   };
 
+  const handleSaveSessionName = (value) => {
+    const name = (value ?? '').trim();
+    setEditingSessionName(false);
+    setNameSaving(true);
+    fetch(`/api/sessions/${id}/name`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name || null }),
+    })
+      .then((r) => {
+        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Failed to save name'); });
+        return r.json();
+      })
+      .then(() => {
+        setSession((s) => s ? { ...s, name: name || null } : s);
+      })
+      .catch(console.error)
+      .finally(() => setNameSaving(false));
+  };
+
+  const handleSessionNameKeyDown = (currentValue, e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveSessionName(currentValue);
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setEditingSessionName(false);
+    }
+  };
+
   if (loading && !session) return <div className="card">Loading...</div>;
   if (!session) return <div className="card">Project not found.</div>;
 
@@ -207,7 +245,37 @@ export default function SessionDetail() {
     <div className="card">
       <header className="chunk-editor-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0 }}>{session.name?.trim() || `Project ${id}`}</h1>
+          {editingSessionName ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                ref={sessionNameInputRef}
+                type="text"
+                defaultValue={session.name?.trim() || ''}
+                disabled={nameSaving}
+                onBlur={() => handleSaveSessionName(sessionNameInputRef.current?.value)}
+                onKeyDown={(e) => handleSessionNameKeyDown(sessionNameInputRef.current?.value, e)}
+                placeholder="Project name"
+                style={{ fontSize: '1.5rem', fontWeight: 700, minWidth: '12rem', maxWidth: '100%', boxSizing: 'border-box' }}
+                className="form-input"
+              />
+            </span>
+          ) : (
+            <>
+              <h1 style={{ margin: 0 }}>{session.name?.trim() || `Project ${id}`}</h1>
+              <button
+                type="button"
+                className="btn-link chunk-edit-icon-btn"
+                onClick={() => setEditingSessionName(true)}
+                aria-label="Edit project name"
+                title="Edit project name"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </button>
+            </>
+          )}
           <span className={`status-badge status-${session.status}`}>
             {session.status === 'configured' ? 'Active' : session.status.charAt(0).toUpperCase() + session.status.slice(1)}
           </span>
@@ -274,41 +342,52 @@ export default function SessionDetail() {
 
       {stats && (
         <div className="card card-stats" style={{ marginTop: '1.5rem' }}>
-          <h2>Stats</h2>
-          <div className="stats-grid">
+          <h2 className="section-title">📋 Overview</h2>
+          <div className="stats-list">
             {session.original_filename && (
-              <p>Original file: <strong>{session.original_filename}</strong></p>
+              <div className="stats-row">
+                <span className="stats-label">Original file</span>
+                <span className="stats-value">{session.original_filename}</span>
+              </div>
             )}
             {session.creator_name && (
-              <p>Creator: <strong>{session.creator_name}</strong></p>
+              <div className="stats-row">
+                <span className="stats-label">Creator</span>
+                <span className="stats-value">{session.creator_name}</span>
+              </div>
             )}
-            <p>
-              Created: <strong>{formatDate(session.created_at)}</strong>
-              {' · '}
-              Updated: <strong>{formatDate(session.updated_at)}</strong>
-            </p>
-            <p>
-              Total chunks: <strong>{stats.totalChunks}</strong>
-              {' · '}
-              Completed: <strong>{stats.chunksCompleted}</strong>
-              {' · '}
-              In progress: <strong>{stats.chunksInProgress}</strong>
-              {' · '}
-              Unclaimed: <strong>{stats.chunksUnclaimed}</strong>
-            </p>
-            <p>
-              Records edited: <strong>{stats.rowsEdited}</strong> / {stats.totalRows}
-              {' · '}
-              Completion: <strong>{stats.completionPct}%</strong> (chunks)
-            </p>
+            <div className="stats-row">
+              <span className="stats-label">Created</span>
+              <span className="stats-value">{formatDate(session.created_at)}</span>
+            </div>
+            <div className="stats-row">
+              <span className="stats-label">Updated</span>
+              <span className="stats-value">{formatDate(session.updated_at)}</span>
+            </div>
+            <div className="stats-row">
+              <span className="stats-label">Chunks</span>
+              <span className="stats-value">
+                <strong>{stats.totalChunks}</strong> total
+                {' · '}<strong>{stats.chunksCompleted}</strong> completed
+                {' · '}<strong>{stats.chunksInProgress}</strong> in progress
+                {' · '}<strong>{stats.chunksUnclaimed}</strong> unclaimed
+              </span>
+            </div>
+            <div className="stats-row">
+              <span className="stats-label">Records</span>
+              <span className="stats-value">
+                <strong>{stats.rowsEdited}</strong> / {stats.totalRows} edited
+                {' · '}<strong>{stats.completionPct}%</strong> completion (chunks)
+              </span>
+            </div>
           </div>
-          <div className="progress-bar">
+          <div className="progress-bar" role="presentation" aria-hidden="true">
             <div className="progress-bar-fill" style={{ width: `${stats.completionPct}%` }} />
           </div>
         </div>
       )}
 
-      <h2>Chunks</h2>
+      <h2 className="section-title">📦 Chunks</h2>
       {deleteConfirmOpen && (
         <div className="card card-warning">
           {deleteStep === 'confirm' ? (

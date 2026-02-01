@@ -76,6 +76,15 @@ export function updateSessionStatus(sessionId, newStatus) {
   return { ok: true };
 }
 
+export function updateSessionName(sessionId, name) {
+  const db = getDb(process.env.DB_PATH);
+  const session = db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId);
+  if (!session) return { ok: false, error: 'Session not found' };
+  const value = name != null ? String(name).trim() || null : null;
+  db.prepare("UPDATE sessions SET name = ?, updated_at = datetime('now') WHERE id = ?").run(value, sessionId);
+  return { ok: true };
+}
+
 export function deleteSessionRowsAndChunks(sessionId) {
   const db = getDb(process.env.DB_PATH);
   db.prepare('DELETE FROM session_rows WHERE session_id = ?').run(sessionId);

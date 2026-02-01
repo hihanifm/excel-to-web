@@ -231,6 +231,22 @@ router.put('/:id/status', (req, res) => {
   }
 });
 
+// PUT /api/sessions/:id/name — body: { name }. Update project/session display name.
+router.put('/:id/name', (req, res) => {
+  try {
+    const sessionId = Number(req.params.id);
+    const { name } = req.body;
+    const result = sessionService.updateSessionName(sessionId, name);
+    if (!result.ok) {
+      return res.status(result.error === 'Session not found' ? 404 : 400).json({ error: result.error });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'Failed to update name' });
+  }
+});
+
 // DELETE /api/sessions/:id/abandon — abandon draft/configured session (no PIN). For create-wizard cancel.
 router.delete('/:id/abandon', (req, res) => {
   try {
