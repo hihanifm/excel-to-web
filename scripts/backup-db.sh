@@ -31,38 +31,62 @@ KEEP=""
 OUTPUT=""
 EVERY_HOURS=""
 RETAIN_DAYS=""
+INSTALL_CRON=""
 while [[ $# -gt 0 ]]; do
   case $1 in
     --keep) KEEP="$2"; shift 2 ;;
     --output) OUTPUT="$2"; shift 2 ;;
     --every-hours) EVERY_HOURS="$2"; shift 2 ;;
     --retain-days) RETAIN_DAYS="$2"; shift 2 ;;
+    --install-cron) INSTALL_CRON=1; shift ;;
     -h|--help)
-      echo "Usage: $0 [--keep N] [--retain-days N] [--every-hours N] [--output path]"
+      echo "Usage: $0 [--keep N] [--retain-days N] [--every-hours N] [--output path] [--install-cron]"
       echo "  --keep N         Keep only last N backups (count-based)"
       echo "  --retain-days N  Delete backups older than N days (duration-based)"
       echo "  --every-hours N  Only backup if last backup ≥N hours ago AND DB changed since last backup"
       echo "  --output path    Custom backup path"
+      echo "  --install-cron   Add cron job (runs every hour, backup if 6+ hours since last and DB changed, keep 7 days)"
       echo ""
-      echo "Cron example (every hour, backup if 6+ hours since last backup and DB changed, keep 7 days):"
-      echo "  0 * * * * cd /path/to/excel-to-web && ./scripts/backup-db.sh --every-hours 6 --retain-days 7"
+      echo "Easy cron setup: ./scripts/backup-db.sh --install-cron   or   ./scripts/backup-cron-setup.sh"
       exit 0
       ;;
-    *) echo "Usage: $0 [--keep N] [--retain-days N] [--every-hours N] [--output path]" >&2; exit 1 ;;
+    *) echo "Usage: $0 [--keep N] [--retain-days N] [--every-hours N] [--output path] [--install-cron]" >&2; exit 1 ;;
   esac
 done
 
 if [ ! -f "$DB_PATH" ]; then
-  echo "Error: Database not found at $DB_PATH"
-  exit 1
+  [ "$INSTALL_CRON" != "1" ] && { echo "Error: Database not found at $DB_PATH"; exit 1; }
+fi
+
+CRON_LINE="0 * * * * cd $ROOT && ./scripts/backup-db.sh --every-hours 6 --retain-days 7"
+
+# --install-cron: add cron job, then exit (or continue with backup if other args given)
+install_cron() {
+  if crontab -l 2>/dev/null | grep -qF "backup-db.sh"; then
+    echo "Cron job already installed (crontab -l to view)"
+  else
+    (crontab -l 2>/dev/null; echo "$CRON_LINE") | crontab -
+    echo "✓ Cron job installed (runs every hour)"
+  fi
+  echo ""
+  echo "To remove: crontab -e  (delete the backup-db.sh line)"
+}
+
+print_cron_line() {
+  echo ""
+  echo "To add to cron (run once):"
+  echo "  ./scripts/backup-db.sh --install-cron   or   ./scripts/backup-cron-setup.sh"
+  echo ""
+  echo "Or manually: crontab -e  (then paste):"
+  echo "  $CRON_LINE"
+}
+
+if [ "$INSTALL_CRON" = "1" ]; then
+  install_cron
+  [ -z "$KEEP" ] && [ -z "$OUTPUT" ] && [ -z "$EVERY_HOURS" ] && [ -z "$RETAIN_DAYS" ] && exit 0
 fi
 
 # --every-hours N: skip if last backup was <N hours ago OR DB unchanged since last backup
-print_cron_line() {
-  echo ""
-  echo "Cron (add with crontab -e):"
-  echo "0 * * * * cd $ROOT && ./scripts/backup-db.sh --every-hours 6 --retain-days 7"
-}
 if [ -n "$EVERY_HOURS" ] && [ "$EVERY_HOURS" -gt 0 ] 2>/dev/null; then
   LATEST=$(ls -t "$BACKUP_DIR"/excel-app-*.db 2>/dev/null | head -1)
   if [ -n "$LATEST" ]; then
