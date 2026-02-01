@@ -11,16 +11,16 @@ Web app for chunked editing of large Excel files: upload, choose sheet, configur
 1. **Clone** the repo.
 2. **Setup** — install dependencies:
    ```
-   npm run setup
+   ./scripts/setup.sh
    ```
 3. **Start** the server:
    ```
-   npm run start
+   ./scripts/start.sh
    ```
    Open http://localhost:36001
 4. **Stop** when done:
    ```
-   npm run stop
+   ./scripts/stop.sh
    ```
 
 That's it.
@@ -29,7 +29,7 @@ That's it.
 
 | Script | Description |
 |--------|-------------|
-| `npm run setup` | Install dependencies (server + client). |
-| `npm run start` | Start server and frontend. Open http://localhost:36001 |
-| `npm run stop` | Stop server and frontend. |
-| `npm run status` | Check if server and frontend are running. |
+| `./scripts/setup.sh` | Install dependencies (server + client). |
+| `./scripts/start.sh` | Start server and frontend. Open http://localhost:36001 |
+| `./scripts/stop.sh` | Stop server and frontend. |
+| `./scripts/status.sh` | Check if server and frontend are running. |

@@ -47,11 +47,18 @@ if (!outputPath) {
 const dbPathResolved = resolve(process.cwd(), dbPath);
 const outputPathResolved = resolve(process.cwd(), outputPath);
 
-try {
+async function runBackup() {
   const db = new Database(dbPathResolved, { readonly: true });
-  db.backup(outputPathResolved);
-  db.close();
-  console.log('Backup created:', outputPathResolved);
+  try {
+    await db.backup(outputPathResolved);
+    console.log('Backup created:', outputPathResolved);
+  } finally {
+    db.close();
+  }
+}
+
+try {
+  await runBackup();
 } catch (err) {
   console.error('Backup failed:', err.message);
   process.exit(1);
