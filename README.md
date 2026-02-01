@@ -109,5 +109,4 @@ You can place `.xlsx` or `.xls` files in the preloaded folder (default `~/.excel
   - `--keep N` – retain only last N backups (count)
   - `--retain-days N` – delete backups older than N days (duration)
   - `--every-hours N` – only backup if last backup ≥N hours ago AND DB changed (for cron)
-  - Example cron (every hour, backup if 6+ hours since last and DB changed, keep 7 days):
-    `0 * * * * cd /path/to/excel-to-web && ./scripts/backup-db.sh --every-hours 6 --retain-days 7`
+  - **Add to cron:** `./scripts/backup-cron-setup.sh` (or `npm run backup-cron-setup`) – adds cron job in one command
