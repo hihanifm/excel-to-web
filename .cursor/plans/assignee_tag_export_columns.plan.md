@@ -30,34 +30,31 @@ UI options per field:
 
 For existing `session_config` rows (ALTER TABLE with DEFAULTs):
 
-- **Assignee**: enabled, new column — `assignee_column = 'Assignee'`, `assignee_column_is_new = 1`
-- **Tag**: enabled, new column — `tag_column = 'Tag'`, `tag_column_is_new = 1`
+- **Assignee**: `assignee_column = 'Assignee'` (new column at export if not in headers)
+- **Tag**: `tag_column = 'Tag'` (new column at export if not in headers)
 
-So existing sessions get assignee and tag export on by default, using new columns.
+So existing sessions get assignee and tag export on by default.
 
 ## Data Model
 
 Extend `session_config`:
 
+| Column            | Type | Meaning                          |
+| ----------------- | ---- | -------------------------------- |
+| `assignee_column` | TEXT | Column name; null = don't export |
+| `tag_column`      | TEXT | Column name; null = don't export |
 
-| Column                   | Type    | Meaning                          |
-| ------------------------ | ------- | -------------------------------- |
-| `assignee_column`        | TEXT    | Column name; null = don't export |
-| `assignee_column_is_new` | INTEGER | 0 = existing, 1 = new            |
-| `tag_column`             | TEXT    | Column name; null = don't export |
-| `tag_column_is_new`      | INTEGER | 0 = existing, 1 = new            |
+**Existing vs new at export**: If the column name exists in headers, overwrite that column; otherwise append as new column. No `*_is_new` fields needed.
 
 
 ## Implementation
 
 ### 1. Schema and DB
 
-- [server/src/db/schema.sql](server/src/db/schema.sql) — add 4 columns to `session_config`
+- [server/src/db/schema.sql](server/src/db/schema.sql) — add 2 columns to `session_config`
 - [server/src/db/index.js](server/src/db/index.js) — ALTER TABLE with defaults for migration:
   - `assignee_column TEXT DEFAULT 'Assignee'`
-  - `assignee_column_is_new INTEGER DEFAULT 1`
   - `tag_column TEXT DEFAULT 'Tag'`
-  - `tag_column_is_new INTEGER DEFAULT 1`
 
 ### 2. Session Service
 
@@ -70,12 +67,12 @@ Extend `session_config`:
 
 - [server/src/routes/export.js](server/src/routes/export.js)
   - Read assignee/tag config; if column set, use `getRowToChunkMapping`
-  - For each row: write assignee/tag to configured column (existing or new), same pattern as target column
+  - For each row: write assignee/tag to configured column. If column name exists in headers, overwrite at that index; else append as new column.
 
 ### 4. API
 
 - [server/src/routes/sessions.js](server/src/routes/sessions.js)
-  - `PUT /api/sessions/:id/config` accepts `assigneeColumn`, `assigneeColumnIsNew`, `tagColumn`, `tagColumnIsNew` (null = don't export)
+  - `PUT /api/sessions/:id/config` accepts `assigneeColumn`, `tagColumn` (null = don't export)
 
 ### 5. Frontend — SessionCreate Step 4
 
