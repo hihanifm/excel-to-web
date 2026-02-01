@@ -567,7 +567,19 @@ export default function SessionDetail() {
                       </>
                     )}
                   </td>
-                  <td>{ch.rowsEditedInChunk ?? 0} / {ch.rowsInChunk ?? (ch.end_row - ch.start_row)}</td>
+                  <td>
+                    {(() => {
+                      const edited = ch.rowsEditedInChunk ?? 0;
+                      const total = ch.rowsInChunk ?? (ch.end_row - ch.start_row);
+                      const pct = total > 0 ? Math.round((edited / total) * 100) : 0;
+                      return (
+                        <>
+                          {edited} / {total}
+                          {total > 0 && <span className="chunk-records-pct"> · {pct}%</span>}
+                        </>
+                      );
+                    })()}
+                  </td>
                 </tr>
               );
             })}

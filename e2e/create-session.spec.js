@@ -82,8 +82,8 @@ test.describe.serial('Session and chunk e2e', () => {
     await expect(firstRow.getByText('E2E Tester')).toBeVisible({ timeout: 5000 });
     await firstRow.locator('td').first().click();
     await page.waitForURL(new RegExp(`/sessions/${sessionId}/chunks/\\d+/edit`));
-    await expect(page.getByText(/records per view/i)).toBeVisible();
-    await page.locator('select').selectOption('5');
+    await expect(page.getByLabel(/records per view/i)).toBeVisible();
+    await page.getByLabel(/records per view/i).selectOption('5');
     await expect(page.getByText(/of\s+1[-–]25/)).toBeVisible({ timeout: 10000 });
 
     const rowCards = page.locator('.card-row');
@@ -109,7 +109,7 @@ test.describe.serial('Session and chunk e2e', () => {
     await expect(firstChunkRow).toBeVisible({ timeout: 5000 });
     await firstChunkRow.locator('td').first().click();
     await page.waitForURL(new RegExp(`/sessions/${sessionId}/chunks/\\d+/edit`));
-    await expect(page.getByText(/records per view/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByLabel(/records per view/i)).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('button', { name: 'Claim chunk' })).not.toBeVisible();
     await expect(page.getByLabel(/your name/i)).not.toBeVisible();
   });
@@ -133,9 +133,11 @@ test.describe.serial('Session and chunk e2e', () => {
     await page.getByLabel('Your name').fill('E2E Tester');
     await page.getByRole('button', { name: 'Claim chunk' }).click();
     await expect(page.getByRole('heading', { name: /Chunk \(records/ })).toBeVisible({ timeout: 5000 });
-    // Re-chunk widget: open form, use Equal with 2 sub-chunks, Split then Confirm
-    await page.getByRole('button', { name: 'Split this chunk' }).click();
-    await page.getByRole('radio', { name: 'Equal' }).check();
+    // Re-chunk widget: open card (summary) to show form, use Equal with 2 sub-chunks, Split then Confirm
+    const rechunkCard = page.locator('.rechunk-widget-card-collapsible');
+    await rechunkCard.scrollIntoViewIfNeeded();
+    await rechunkCard.locator('.rechunk-widget-summary').click();
+    await page.getByRole('radio', { name: 'Equal' }).check({ timeout: 5000 });
     await page.locator('.rechunk-widget-input').first().fill('2');
     await page.getByRole('button', { name: 'Split' }).click();
     await page.getByRole('button', { name: 'Confirm' }).click();

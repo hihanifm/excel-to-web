@@ -226,10 +226,10 @@ export function listSessions() {
   });
 }
 
-/** Leaf chunk = no row has parent_id = this chunk's id. */
+/** Leaf chunk = no row has parent_id = this chunk's id. Returns id, status, start_row, end_row. */
 function getLeafChunksBySession(db, sessionId) {
   return db.prepare(
-    `SELECT id, status FROM chunks c WHERE c.session_id = ? AND NOT EXISTS (SELECT 1 FROM chunks c2 WHERE c2.parent_id = c.id)`
+    `SELECT id, status, start_row, end_row FROM chunks c WHERE c.session_id = ? AND NOT EXISTS (SELECT 1 FROM chunks c2 WHERE c2.parent_id = c.id)`
   ).all(sessionId);
 }
 
@@ -245,12 +245,14 @@ export function getSessionStats(sessionId) {
   const chunksUnclaimed = chunks.filter((c) => c.status === 'unclaimed').length;
   const chunksInProgress = chunks.filter((c) => c.status === 'in_progress').length;
   const chunksCompleted = chunks.filter((c) => c.status === 'completed').length;
+  /** Total records in scope = sum of (end_row - start_row) over leaf chunks (not full sheet row count). */
+  const totalRowsInChunks = chunks.reduce((sum, c) => sum + (c.end_row - c.start_row), 0);
   return {
     totalChunks,
     chunksUnclaimed,
     chunksInProgress,
     chunksCompleted,
-    totalRows: session.total_rows,
+    totalRows: totalRowsInChunks > 0 ? totalRowsInChunks : session.total_rows,
     rowsEdited,
     completionPct: totalChunks ? Math.round((chunksCompleted / totalChunks) * 100) : 0,
   };
