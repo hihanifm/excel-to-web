@@ -116,6 +116,7 @@
   /* Misc UI */
   --disabled-bg: #cbd5e1;
   --link-color: #0ea5e9;
+  --chunk-folder-icon-color: #ca8a04;
 }
 
 [data-theme="dark"] {
@@ -235,6 +236,7 @@
   /* Misc UI */
   --disabled-bg: #475569;
   --link-color: #38bdf8;
+  --chunk-folder-icon-color: #facc15;
 }
 
 * {
@@ -1020,7 +1022,7 @@ table.data-table .chunk-type-icon {
   color: var(--color-text-muted);
 }
 table.data-table tr.chunk-row-container .chunk-type-icon {
-  color: var(--link-color);
+  color: var(--chunk-folder-icon-color);
 }
 table.data-table tr.chunk-row-leaf .chunk-type-icon {
   color: var(--color-primary);
