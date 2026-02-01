@@ -80,13 +80,12 @@ export default function SessionList() {
           <thead>
             <tr>
               <th>Project</th>
-              <th>Creator</th>
+              <th>Status</th>
+              <th>Completion</th>
               <th>Records</th>
               <th>Chunks</th>
-              <th>Completion</th>
-              <th>Created</th>
+              <th>Creator</th>
               <th>Updated</th>
-              <th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -100,16 +99,6 @@ export default function SessionList() {
                   <span className="session-name">{s.name || `Project ${s.id}`}</span>
                   <span className="session-id">#{s.id}</span>
                 </td>
-                <td>{s.creator_name || '–'}</td>
-                <td>
-                  {s.total_rows != null
-                    ? `${(s.rowsEdited ?? 0).toLocaleString()} / ${s.total_rows.toLocaleString()} (${s.recordsCompletionPct ?? 0}%)`
-                    : '–'}
-                </td>
-                <td>{s.totalChunks != null ? s.totalChunks : '–'}</td>
-                <td><strong>{s.completionPct ?? 0}%</strong></td>
-                <td className="session-date">{formatDate(s.created_at)}</td>
-                <td className="session-date">{formatDate(s.updated_at)}</td>
                 <td>
                   {s.status === 'completed' ? (
                     <span className="status-badge status-completed">Completed</span>
@@ -121,6 +110,15 @@ export default function SessionList() {
                     <span className="status-badge status-pending">Not configured</span>
                   )}
                 </td>
+                <td><strong>{s.completionPct ?? 0}%</strong></td>
+                <td>
+                  {s.total_rows != null
+                    ? `${(s.rowsEdited ?? 0).toLocaleString()} / ${s.total_rows.toLocaleString()} (${s.recordsCompletionPct ?? 0}%)`
+                    : '–'}
+                </td>
+                <td>{s.totalChunks != null ? s.totalChunks : '–'}</td>
+                <td>{s.creator_name || '–'}</td>
+                <td className="session-date">{formatDate(s.updated_at)}</td>
               </tr>
             ))}
           </tbody>
