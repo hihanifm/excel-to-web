@@ -1,6 +1,7 @@
 import { useApiStatus } from '../App';
 
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.1';
+const APP_BRANCH = typeof __APP_BRANCH__ !== 'undefined' ? __APP_BRANCH__ : '—';
 const APP_NAME = 'Excel Data Labeling';
 
 export default function Footer() {
@@ -15,7 +16,7 @@ export default function Footer() {
       <div className="app-footer-inner">
         <span className="app-footer-name">{APP_NAME}</span>
         <span className="app-footer-sep">|</span>
-        <span>v{APP_VERSION}</span>
+        <span>v{APP_VERSION} ({APP_BRANCH})</span>
         <span className="app-footer-sep">|</span>
         <span className="app-footer-mode">{mode}</span>
         <span className="app-footer-sep">|</span>
