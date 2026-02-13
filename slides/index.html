@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Excel Data Labeller</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4/dist/theme/black.css">
+  <style>
+    .reveal h1, .reveal h2 { text-transform: none; }
+    .reveal .tagline { color: #aaa; font-size: 0.6em; margin-top: 1em; }
+    .reveal ul { font-size: 0.9em; }
+    .reveal code { background: #333; padding: 0.2em 0.4em; border-radius: 4px; }
+    .reveal .flow { font-size: 0.85em; }
+    .reveal .slide-img { max-height: 50vh; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .reveal .slide-with-img { display: flex; align-items: center; gap: 2rem; }
+    .reveal .slide-with-img > div { flex: 1; min-width: 0; }
+    .reveal .slide-with-img img { flex: 1; max-width: 45%; min-width: 200px; }
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+      <section>
+        <h1>Excel Data Labeller</h1>
+        <p class="tagline">Chunked editing for large Excel files</p>
+        <img src="images/session-list.png" alt="Projects list" class="slide-img" style="max-height: 40vh; margin-top: 1rem;">
+      </section>
+
+      <section>
+        <h2>The Problem</h2>
+        <ul>
+          <li>Large Excel files</li>
+          <li>Many editors working simultaneously</li>
+          <li>Merge conflicts and coordination overhead</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Solution</h2>
+        <p class="flow">Upload → chunk by rows → claim chunks → edit row-by-row → export merged</p>
+        <img src="images/session-create.png" alt="Create project wizard" class="slide-img">
+      </section>
+
+      <section>
+        <h2>Architecture</h2>
+        <ul>
+          <li><strong>Backend:</strong> Node.js, Express, SQLite, ExcelJS, multer</li>
+          <li><strong>Frontend:</strong> React, Vite, React Router</li>
+        </ul>
+      </section>
+
+      <section class="slide-with-img">
+        <div>
+          <h2>Key Features</h2>
+          <ul>
+            <li>Upload or preload Excel files</li>
+            <li>Sheet and column configuration</li>
+            <li>Chunking widget</li>
+            <li>Claim / resume chunks</li>
+            <li>Tags per chunk</li>
+          </ul>
+        </div>
+        <img src="images/session-detail.png" alt="Session detail with chunks" class="slide-img">
+      </section>
+
+      <section class="slide-with-img">
+        <div>
+          <h2>Re-chunk</h2>
+          <ul>
+            <li>Hierarchical chunks</li>
+            <li>Drill down: container → children</li>
+            <li>Re-chunk leaf chunks</li>
+          </ul>
+        </div>
+        <img src="images/session-detail.png" alt="Chunks with hierarchy" class="slide-img">
+      </section>
+
+      <section>
+        <h2>Export</h2>
+        <ul>
+          <li>Merge all edits</li>
+          <li>Pre-export integrity check</li>
+          <li>Download result</li>
+        </ul>
+        <img src="images/chunk-editor.png" alt="Row editor" class="slide-img" style="max-height: 35vh;">
+      </section>
+
+      <section>
+        <h2>Run It</h2>
+        <pre><code>npm run setup && npm run start</code></pre>
+        <p><a href="http://localhost:36001">http://localhost:36001</a></p>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@4/dist/reveal.js"></script>
+  <script>
+    Reveal.initialize({
+      hash: true,
+      transition: 'slide'
+    });
+  </script>
+</body>
+</html>
